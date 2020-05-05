@@ -342,7 +342,7 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
 
         // yanqi, update cpu usage
         if(cpuUtil > 0 && randomGen.nextDouble <= functionSampleRate)
-          dataProcessor ! InvocationSample(entry.fullyQualifiedEntityName, cpuUtil, entry.updateCpuLimit)
+          dataProcessor ! InvocationSample(entry.fullyQualifiedEntityName, cpuUtil, exeTime, entry.updateCpuLimit)
         logging.info(this, s"function ${entry.fullyQualifiedEntityName.asString}, activation id ${aid}, cpu usage = ${cpuUtil}, exe time = ${exeTime}")(tid)
 
         if (!forced) {
