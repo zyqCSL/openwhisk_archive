@@ -697,7 +697,7 @@ class ContainerProxy(
     val sendResult = if (job.msg.blocking) {
       activation.map(
         // yanqi, cpu_util & exe time is included in completion ack, not result ack
-        sendActiveAck(tid, _, job.msg.blocking, job.msg.rootControllerIndex, job.msg.user.namespace.uuid, false, 0.0))
+        sendActiveAck(tid, _, job.msg.blocking, job.msg.rootControllerIndex, job.msg.user.namespace.uuid, false, 0.0, 0))
     } else {
       // For non-blocking request, do not forward the result.
       Future.successful(())
@@ -771,7 +771,7 @@ object ContainerProxy {
               // Int,
               Double,
               Option[ExecutableWhiskAction]) => Future[Container],
-    ack: (TransactionId, WhiskActivation, Boolean, ControllerInstanceId, UUID, Boolean, Double) => Future[Any], // yanqi, add Double for cpu util
+    ack: (TransactionId, WhiskActivation, Boolean, ControllerInstanceId, UUID, Boolean, Double, Long) => Future[Any], // yanqi, add Double for cpu util & Long for exe time
     store: (TransactionId, WhiskActivation, UserContext) => Future[Any],
     collectLogs: (TransactionId, Identity, WhiskActivation, Container, ExecutableWhiskAction) => Future[ActivationLogs],
     instance: InvokerInstanceId,

@@ -771,7 +771,7 @@ object ContainerProxy {
               // Int,
               Double,
               Option[ExecutableWhiskAction]) => Future[Container],
-    ack: (TransactionId, WhiskActivation, Boolean, ControllerInstanceId, UUID, Boolean, Double) => Future[Any], // yanqi, add Double for cpu util
+    ack: (TransactionId, WhiskActivation, Boolean, ControllerInstanceId, UUID, Boolean, Double, Long) => Future[Any], // yanqi, add Double for cpu util & Long for exe time
     store: (TransactionId, WhiskActivation, UserContext) => Future[Any],
     collectLogs: (TransactionId, Identity, WhiskActivation, Container, ExecutableWhiskAction) => Future[ActivationLogs],
     instance: InvokerInstanceId,
