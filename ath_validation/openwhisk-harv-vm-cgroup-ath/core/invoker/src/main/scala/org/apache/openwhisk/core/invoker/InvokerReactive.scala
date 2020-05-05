@@ -276,7 +276,8 @@ class InvokerReactive(
                 val context = UserContext(msg.user)
                 val activation = generateFallbackActivation(msg, response)
                 activationFeed ! MessageFeed.Processed
-                ack(msg.transid, activation, msg.blocking, msg.rootControllerIndex, msg.user.namespace.uuid, true, 0.0)  // yanqi, add 0.0 as default cpu util
+                // yanqi, add 0.0 as default cpu util & 0 as default execution time
+                ack(msg.transid, activation, msg.blocking, msg.rootControllerIndex, msg.user.namespace.uuid, true, 0.0, 0)   
                 store(msg.transid, activation, context)
                 Future.successful(())
             }
