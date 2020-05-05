@@ -197,7 +197,8 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
     activationSlots.getOrElseUpdate(
       msg.activationId, {
         val timeoutHandler = actorSystem.scheduler.scheduleOnce(completionAckTimeout) {
-          processCompletion(msg.activationId, msg.transid, forced = true, isSystemError = false, invoker = instance, cpuUtil = 0.0) // yanqi, default cpu util being 0.0
+          processCompletion(msg.activationId, msg.transid, forced = true, isSystemError = false, invoker = instance, 
+            cpuUtil = 0.0, exeTime = 0) // yanqi, default cpu util being 0.0
         }
 
         // please note: timeoutHandler.cancel must be called on all non-timeout paths, e.g. Success
@@ -342,7 +343,7 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
 
         // yanqi, update cpu usage
         if(cpuUtil > 0 && randomGen.nextDouble <= functionSampleRate)
-          dataProcessor ! InvocationSample(entry.fullyQualifiedEntityName, cpuUtil, entry.updateCpuLimit)
+          dataProcessor ! InvocationSample(entry.fullyQualifiedEntityName, cpuUtil, exeTime, entry.updateCpuLimit)
         logging.info(this, s"function ${entry.fullyQualifiedEntityName.asString}, activation id ${aid}, cpu usage = ${cpuUtil}, exe time = ${exeTime}")(tid)
 
         if (!forced) {
