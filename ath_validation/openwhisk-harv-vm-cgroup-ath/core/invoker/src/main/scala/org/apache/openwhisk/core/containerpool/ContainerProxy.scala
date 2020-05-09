@@ -326,6 +326,14 @@ class ContainerProxy(
               case BlackboxStartupError(msg)       => ActivationResponse.developerError(msg)
               case _                               => ActivationResponse.whiskError(Messages.resourceProvisionError)
             }
+
+            // yanqi, debug, check developer error container start overhead
+            val failure_container_overhead = Duration.create(Instant.now.toEpochMilli - job.startInstant.get.toEpochMilli, 
+              MILLISECONDS).toMicros
+            t match {
+              case BlackboxStartupError(msg) => logging.warn(this, s"aid ${job.msg.activationId.toString} developerError container overhead=${failure_container_overhead}us")
+            }
+
             val context = UserContext(job.msg.user)
             // construct an appropriate activation and record it in the datastore,
             // also update the feed and active ack; the container cleanup is queued
