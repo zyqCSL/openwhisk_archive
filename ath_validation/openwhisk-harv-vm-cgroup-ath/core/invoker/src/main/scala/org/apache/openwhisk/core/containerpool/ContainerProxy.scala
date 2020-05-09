@@ -673,7 +673,7 @@ class ContainerProxy(
               if (job.startInstant.isEmpty) {
                 totalTime = exeTime
               } else {
-                totalTime = Duration.create(runInterval.end.toEpochMilli() - job.startInstant.toEpochMilli(), MILLISECONDS).toMicros
+                totalTime = Duration.create(runInterval.end.toEpochMilli - job.startInstant.get.toEpochMilli, MILLISECONDS).toMicros
               }
 
               ContainerProxy.constructWhiskActivation(
