@@ -673,7 +673,7 @@ class ContainerProxy(
               if (job.startInstant.isEmpty) {
                 totalTime = exeTime
               } else {
-                totalTime = runInterval.end.toMicros - job.startInstant.get.toMicros
+                totalTime = Duration.create(runInterval.end.toEpochMilli() - job.startInstant.toEpochMilli(), MILLISECONDS).toMicros
               }
 
               ContainerProxy.constructWhiskActivation(
@@ -785,7 +785,8 @@ object ContainerProxy {
               // Int,
               Double,
               Option[ExecutableWhiskAction]) => Future[Container],
-    ack: (TransactionId, WhiskActivation, Boolean, ControllerInstanceId, UUID, Boolean, Double, Long) => Future[Any], // yanqi, add Double for cpu util & Long for exe time
+    // yanqi, add Double for cpu util & Long for exe time & Long for total time
+    ack: (TransactionId, WhiskActivation, Boolean, ControllerInstanceId, UUID, Boolean, Double, Long, Long) => Future[Any], 
     store: (TransactionId, WhiskActivation, UserContext) => Future[Any],
     collectLogs: (TransactionId, Identity, WhiskActivation, Container, ExecutableWhiskAction) => Future[ActivationLogs],
     instance: InvokerInstanceId,

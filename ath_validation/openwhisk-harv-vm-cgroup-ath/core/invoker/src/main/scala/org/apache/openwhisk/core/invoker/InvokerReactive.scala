@@ -60,6 +60,7 @@ object InvokerReactive extends InvokerProvider {
    * @param Boolean is true this is resource free message and false if this is a result forwarding message
    * @param Double is cpu utilization of the function
    * @param Long is execution time of the function
+   * @param Long is total time of the function (including cold start)
    */
   type ActiveAck = (TransactionId, WhiskActivation, Boolean, ControllerInstanceId, UUID, Boolean, 
     Double, Long, Long) => Future[Any]
