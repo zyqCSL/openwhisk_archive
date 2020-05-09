@@ -160,7 +160,7 @@ class InvokerReactive(
                                                 userId: UUID,
                                                 isSlotFree: Boolean,
                                                 cpuUtil: Double,
-                                                exeTime: Long
+                                                exeTime: Long,
                                                 totalTime: Long) => {
     implicit val transid: TransactionId = tid
 
