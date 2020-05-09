@@ -46,7 +46,7 @@ import java.nio.file.{Paths, Files} // yanqi, check file exists
 
 object InvokerReactive extends InvokerProvider {
 
-  // yanqi, add cpu util & execution time
+  // yanqi, add cpu util & execution time & total time
   /**
    * An method for sending Active Acknowledgements (aka "active ack") messages to the load balancer. These messages
    * are either completion messages for an activation to indicate a resource slot is free, or result-forwarding
@@ -62,7 +62,7 @@ object InvokerReactive extends InvokerProvider {
    * @param Long is execution time of the function
    */
   type ActiveAck = (TransactionId, WhiskActivation, Boolean, ControllerInstanceId, UUID, Boolean, 
-    Double, Long) => Future[Any]
+    Double, Long, Long) => Future[Any]
 
   override def instance(
     config: WhiskConfig,
@@ -160,15 +160,16 @@ class InvokerReactive(
                                                 userId: UUID,
                                                 isSlotFree: Boolean,
                                                 cpuUtil: Double,
-                                                exeTime: Long) => {
+                                                exeTime: Long
+                                                totalTime: Long) => {
     implicit val transid: TransactionId = tid
 
     def send(res: Either[ActivationId, WhiskActivation], recovery: Boolean = false) = {
       val msg = if (isSlotFree) {
         val aid = res.fold(identity, _.activationId)
         val isWhiskSystemError = res.fold(_ => false, _.response.isWhiskError)
-        // yanqi, add cpuUtil & exeTime to CompletionMessage
-        CompletionMessage(transid, aid, isWhiskSystemError, instance, cpuUtil, exeTime)
+        // yanqi, add cpuUtil & exeTime & totalTime to CompletionMessage
+        CompletionMessage(transid, aid, isWhiskSystemError, instance, cpuUtil, exeTime, totalTime)
       } else {
         ResultMessage(transid, res)
       }
@@ -276,8 +277,8 @@ class InvokerReactive(
                 val context = UserContext(msg.user)
                 val activation = generateFallbackActivation(msg, response)
                 activationFeed ! MessageFeed.Processed
-                // yanqi, add 0.0 as default cpu util & 0 as default execution time
-                ack(msg.transid, activation, msg.blocking, msg.rootControllerIndex, msg.user.namespace.uuid, true, 0.0, 0)   
+                // yanqi, add 0.0 as default cpu util & 0 as default execution time & total time
+                ack(msg.transid, activation, msg.blocking, msg.rootControllerIndex, msg.user.namespace.uuid, true, 0.0, 0, 0)   
                 store(msg.transid, activation, context)
                 Future.successful(())
             }
@@ -287,7 +288,8 @@ class InvokerReactive(
           activationFeed ! MessageFeed.Processed
           val activation =
             generateFallbackActivation(msg, ActivationResponse.applicationError(Messages.namespacesBlacklisted))
-          ack(msg.transid, activation, false, msg.rootControllerIndex, msg.user.namespace.uuid, true, 0.0, 0)    // yanqi, add 0.0 as default cpu util & 0 as default execution time
+            // yanqi, add 0.0 as default cpu util & 0 as default execution time & total time
+          ack(msg.transid, activation, false, msg.rootControllerIndex, msg.user.namespace.uuid, true, 0.0, 0, 0)    
           logging.warn(this, s"namespace ${msg.user.namespace.name} was blocked in invoker.")
           Future.successful(())
         }

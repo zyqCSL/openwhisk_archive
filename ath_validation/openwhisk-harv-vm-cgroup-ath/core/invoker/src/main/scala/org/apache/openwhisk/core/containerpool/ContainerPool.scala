@@ -17,6 +17,7 @@
 
 package org.apache.openwhisk.core.containerpool
 
+import java.time.Instant
 import akka.actor.{Actor, ActorRef, ActorRefFactory, Props}
 import org.apache.openwhisk.common.{AkkaLogging, LoggingMarkers, TransactionId}
 import org.apache.openwhisk.core.connector.MessageFeed
@@ -199,6 +200,7 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
               runBuffer = newBuffer
               runBuffer.dequeueOption.foreach { case (run, _) => self ! run }
             }
+            
             actor ! r // forwards the run request to the container
             logContainerStart(r, containerState, newData.activeActivationCount, container)
           case None =>

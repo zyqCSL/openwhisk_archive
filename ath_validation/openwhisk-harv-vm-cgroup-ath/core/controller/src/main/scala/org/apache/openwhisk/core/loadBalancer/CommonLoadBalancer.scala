@@ -84,7 +84,8 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
   protected val redundantRatio: Double = 1.001
   protected val randomGen = Random
 
-  case class InvocationSample(actionId: FullyQualifiedEntityName, cpuUtil: Double, exeTime: Long, updateCpuLimit: Boolean)
+  case class InvocationSample(actionId: FullyQualifiedEntityName, cpuUtil: Double, 
+    exeTime: Long, totalTime:Long, updateCpuLimit: Boolean)
   // use another process for proecssing data wrt function cpu util distribution
   private val dataProcessor = actorSystem.actorOf(Props(new Actor {
     override def receive: Receive = {
@@ -198,7 +199,7 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
       msg.activationId, {
         val timeoutHandler = actorSystem.scheduler.scheduleOnce(completionAckTimeout) {
           processCompletion(msg.activationId, msg.transid, forced = true, isSystemError = false, invoker = instance, 
-            cpuUtil = 0.0, exeTime = 0) // yanqi, default cpu util being 0.0
+            cpuUtil = 0.0, exeTime = 0, totalTime = 0) // yanqi, default cpu util being 0.0
         }
 
         // please note: timeoutHandler.cancel must be called on all non-timeout paths, e.g. Success
@@ -267,7 +268,8 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
           isSystemError = m.isSystemError,
           invoker = m.invoker,
           m.cpuUtil,
-          m.exeTime)  // yanqi, add cpu util & exe Time
+          m.exeTime,
+          m.totalTime)  // yanqi, add cpu util & exe Time & totalTime
         activationFeed ! MessageFeed.Processed
 
       case Success(m: ResultMessage) =>
@@ -310,14 +312,15 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
     LoggingMarkers.LOADBALANCER_COMPLETION_ACK(controllerInstance, ForcedAfterRegularCompletionAck)
 
   /** 6. Process the completion ack and update the state */
-  // yanqi, add cpu util & execution time
+  // yanqi, add cpu util & execution time & total time (including cold start)
   protected[loadBalancer] def processCompletion(aid: ActivationId,
                                                 tid: TransactionId,
                                                 forced: Boolean,
                                                 isSystemError: Boolean,
                                                 invoker: InvokerInstanceId,
                                                 cpuUtil: Double,
-                                                exeTime: Long): Unit = {
+                                                exeTime: Long,
+                                                totalTime: Long): Unit = {
 
     val invocationResult = if (forced) {
       InvocationFinishedResult.Timeout
@@ -343,8 +346,8 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
 
         // yanqi, update cpu usage
         if(cpuUtil > 0 && randomGen.nextDouble <= functionSampleRate)
-          dataProcessor ! InvocationSample(entry.fullyQualifiedEntityName, cpuUtil, exeTime, entry.updateCpuLimit)
-        logging.info(this, s"function ${entry.fullyQualifiedEntityName.asString}, activation id ${aid}, cpu usage = ${cpuUtil}, exe time = ${exeTime}")(tid)
+          dataProcessor ! InvocationSample(entry.fullyQualifiedEntityName, cpuUtil, exeTime, totalTime, entry.updateCpuLimit)
+        logging.info(this, s"function ${entry.fullyQualifiedEntityName.asString}, activation id ${aid}, cpu usage=${cpuUtil}, exe time=${exeTime}, total time=${totalTime}")(tid)
 
         if (!forced) {
           entry.timeoutHandler.cancel()

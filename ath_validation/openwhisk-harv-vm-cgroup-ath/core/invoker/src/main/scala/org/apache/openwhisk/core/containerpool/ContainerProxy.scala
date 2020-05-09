@@ -183,7 +183,9 @@ case class WarmedData(override val container: Container,
 // Events received by the actor
 // yanqi, add cpu limits
 case class Start(exec: CodeExec[_], cpuLimit: Double, memoryLimit: ByteSize)
-case class Run(action: ExecutableWhiskAction, msg: ActivationMessage, retryLogDeadline: Option[Deadline] = None)
+// yanqi, add startInstant to track container start time
+case class Run(action: ExecutableWhiskAction, msg: ActivationMessage, 
+  retryLogDeadline: Option[Deadline] = None, var startInstant: Option[Instant] = None)
 case object Remove
 
 // Events sent by the actor
@@ -290,6 +292,8 @@ class ContainerProxy(
       var cpuLimit = job.msg.cpuLimit
       if(cpuLimit <= 0)
         cpuLimit = job.action.limits.cpu.cores
+      // yanqi, update timestamp to track cold start time
+      job.startInstant = Some(Instant.now)
 
       val container = factory(
         job.msg.transid,
@@ -336,7 +340,8 @@ class ContainerProxy(
               job.msg.user.namespace.uuid,
               true,
               0.0,
-              0) // yanqi, when failed, set cpu util to 0.0 & execution time to 0 by default
+              0,
+              0) // yanqi, when failed, set cpu util to 0.0 & execution time & total time to 0 by default
             storeActivation(transid, activation, context)
         }
         .flatMap { container =>
@@ -624,6 +629,7 @@ class ContainerProxy(
 
     var cpuUtil: Double = 0.0
     var exeTime: Long = 0  // in us
+    var totalTime: Long = 0 // in us
     val activation: Future[WhiskActivation] = initialize
       .flatMap { initInterval =>
         //immediately setup warmedData for use (before first execution) so that concurrent actions can use it asap
@@ -664,6 +670,12 @@ class ContainerProxy(
                 .getOrElse(runInterval)
               cpuUtil = cpu_util  // yanqi, update cpuUtil
               exeTime = runInterval.duration.toMicros // yanqi, update execution time
+              if (job.startInstant.isEmpty) {
+                totalTime = exeTime
+              } else {
+                totalTime = runInterval.end.toMicros - job.startInstant.get.toMicros
+              }
+
               ContainerProxy.constructWhiskActivation(
                 job,
                 initInterval,
@@ -697,7 +709,8 @@ class ContainerProxy(
     val sendResult = if (job.msg.blocking) {
       activation.map(
         // yanqi, cpu_util & exe time is included in completion ack, not result ack
-        sendActiveAck(tid, _, job.msg.blocking, job.msg.rootControllerIndex, job.msg.user.namespace.uuid, false, 0.0, 0))
+        sendActiveAck(tid, _, job.msg.blocking, job.msg.rootControllerIndex, job.msg.user.namespace.uuid, false, 
+          0.0, 0, 0))
     } else {
       // For non-blocking request, do not forward the result.
       Future.successful(())
@@ -743,7 +756,8 @@ class ContainerProxy(
               job.msg.user.namespace.uuid,
               true,
               cpuUtil,
-              exeTime))
+              exeTime,
+              totalTime))
         // Storing the record. Entirely asynchronous and not waited upon.
         storeActivation(tid, activation, context)
       }
