@@ -60,6 +60,7 @@ def proc_log(file):
 		lines = f.readlines()
 	for line in lines:
 		if 'function guest/' in line:
+			print line
 			func, rest = line.split('function guest/')[-1].split('@')
 			items = rest.split(',')
 
