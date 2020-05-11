@@ -65,6 +65,8 @@ def proc_log(file):
 			func, rest = line.split('function guest/')[-1].split('@')
 			items = rest.split(',')
 
+			func.replace('/', '--')
+
 			if func not in exe_time_distr:
 				exe_time_distr[func] = Distribution()
 				overhead_distr[func] = Distribution()
