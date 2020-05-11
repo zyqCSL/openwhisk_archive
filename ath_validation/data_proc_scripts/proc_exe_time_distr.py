@@ -26,9 +26,7 @@ class Distribution:
 
 	def update(self, val):
 		assert val >= 0
-		if val not in self:
-			self.min = val
-			self.max = val
+		if val not in self.distr:
 			self.distr[val] = 0
 		self.min = min(self.min, val)
 		self.max = max(self.max, val)
