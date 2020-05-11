@@ -1,3 +1,4 @@
+# python3 proc_exe_time_distr.py --source-path /home/yz2297/Projects/msr_intern_2019/exp_data/distr_auto.txt --target-path ./distributions/autocomplete
 import sys
 import os
 from pathlib import Path
@@ -43,7 +44,7 @@ class Distribution:
 			contents['samples'] = self.samples
 			contents['distribution'] = self.distr
 			for val in contents['distribution']:
-				contents['distribution'][val] = round(contents['distribution'][val] / samples, 5)
+				contents['distribution'][val] = round(contents['distribution'][val] / self.samples, 5)
 			json.dump(contents, f, indent=4, sort_keys=True)
 
 def proc_log(file):
