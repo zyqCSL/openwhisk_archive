@@ -43,6 +43,8 @@ class Distribution:
 			self.distr[val] += 1
 
 	def save_json(self, path):
+		if len(self.distr) == 0:
+			return
 		with open(str(path), 'w+') as f:
 			contents = {}
 			contents['min'] = self.min
@@ -60,7 +62,6 @@ def proc_log(file):
 		lines = f.readlines()
 	for line in lines:
 		if 'function guest/' in line:
-			print(line)
 			func, rest = line.split('function guest/')[-1].split('@')
 			items = rest.split(',')
 
@@ -76,25 +77,27 @@ def proc_log(file):
 
 			for item in items:
 				# ms precision
-				if 'cpu usage=' in item:
-					cpu_usage = int(float(item.split('cpu usage=')[-1]) * 100)
-				elif 'exe time=' in item:
-					exe_time = int(item.split('exe time=')[-1]) // 1000
-				elif 'total time=' in item:
-					total_time = int(item.split('total time=')[-1]) // 1000
+				if 'cpu usage' in item:
+					cpu_usage = int(float(item.split('cpu usage')[-1].replace('=', '')) * 100)
+				elif 'exe time' in item:
+					exe_time = int(item.split('exe time')[-1].replace('=', '')) // 1000
+				elif 'total time' in item:
+					total_time = int(item.split('total time')[-1].replace('=', '')) // 1000
 					assert exe_time >= 0
 					overhead = total_time - exe_time
 
-			print("cpu usage = %d" %cpu_usage)
+			if cpu_usage < 0 or exe_time < 0:
+				print(line)
 			assert cpu_usage >= 0
 			assert exe_time >= 0
-			assert total_time >= 0
+			# assert total_time >= 0
 
 			if exe_time > 0 and cpu_usage > 0:
 				# meaningful info
 				exe_time_distr[func].update(exe_time)
 				cpu_usage_distr[func].update(cpu_usage)
-				overhead_distr[func].update(overhead)
+				if overhead >= 0:
+					overhead_distr[func].update(overhead)
 
 
 if __name__ == '__main__':
