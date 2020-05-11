@@ -84,6 +84,7 @@ def proc_log(file):
 					assert exe_time >= 0
 					overhead = total_time - exe_time
 
+			print("cpu usage = %d" %cpu_usage)
 			assert cpu_usage >= 0
 			assert exe_time >= 0
 			assert total_time >= 0
