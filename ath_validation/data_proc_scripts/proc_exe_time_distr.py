@@ -95,10 +95,10 @@ def proc_log(file):
 				overhead_distr[func].update(overhead)
 
 
-def __main__():
+if name == '__main__':
 	proc_log(source_path)
 	for func in exe_time_distr:
 		exe_time_distr[func].save_json(target_path / ('exe_time_'+str(func)+'.json'))
-		cpu_usage_distr[func].save_json(cpu_usage / ('cpu_usage_'+str(func)+'.json'))
-		overhead_distr[func].save_json(overhead / ('overhead_'+str(func)+'.json'))
+		cpu_usage_distr[func].save_json(target_path / ('cpu_usage_'+str(func)+'.json'))
+		overhead_distr[func].save_json(target_path / ('overhead_'+str(func)+'.json'))
 
