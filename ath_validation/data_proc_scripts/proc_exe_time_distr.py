@@ -95,7 +95,7 @@ def proc_log(file):
 				overhead_distr[func].update(overhead)
 
 
-if name == '__main__':
+if __name__ == '__main__':
 	proc_log(source_path)
 	for func in exe_time_distr:
 		exe_time_distr[func].save_json(target_path / ('exe_time_'+str(func)+'.json'))
