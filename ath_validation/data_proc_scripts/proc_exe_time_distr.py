@@ -21,26 +21,19 @@ class Distribution:
 	def __init__(self):
 		self.min = 0
 		self.max = 0
+		self.samples = 0
 		self.distr = {}
 
 	def update(self, val):
 		assert val >= 0
-		if len(self.distr) == 0:
+		if val not in self:
 			self.min = val
 			self.max = val
-			self.distr[self.min] = 1
-		else:
-			if val < self.min:
-				for i in range(val, self.min):
-					assert i not in self.distr
-					self.distr[i] = 0
-			if val > self.max:
-				for i in range(self.max+1, val+1):
-					assert i not in self.distr
-					self.distr[i] = 0
-			self.min = min(self.min, val)
-			self.max = max(self.max, val)
-			self.distr[val] += 1
+			self.distr[val] = 0
+		self.min = min(self.min, val)
+		self.max = max(self.max, val)
+		self.distr[val] += 1
+		self.samples += 1
 
 	def save_json(self, path):
 		if len(self.distr) == 0:
@@ -49,7 +42,10 @@ class Distribution:
 			contents = {}
 			contents['min'] = self.min
 			contents['max'] = self.max
+			contents['samples'] = self.samples
 			contents['distribution'] = self.distr
+			for val in contents['distributions']:
+				contents['distributions'][val] = round(contents['distributions'][val] / samples, 5)
 			json.dump(contents, f, indent=4, sort_keys=True)
 
 def proc_log(file):
