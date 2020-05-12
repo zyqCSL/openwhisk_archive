@@ -44,7 +44,7 @@ class Distribution:
 			contents['samples'] = self.samples
 			contents['distribution'] = self.distr
 			for val in contents['distribution']:
-				contents['distribution'][val] = round(contents['distribution'][val] / self.samples, 5)
+				contents['distribution'][val] = round(contents['distribution'][val] / self.samples, 8)
 			json.dump(contents, f, indent=4, sort_keys=True)
 
 def proc_log(file):
