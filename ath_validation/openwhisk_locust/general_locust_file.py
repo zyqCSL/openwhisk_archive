@@ -57,9 +57,9 @@ class OpenWhiskUser(HttpUser):
         r = self.client.post(url, params=params,
             json=body, auth=auth, verify=False,
             name="/image_process")
-
-        logging.info('image_proess resp.status = %d, text=%s' %(r.status_code,
-            r.text))
+        if r.status_code != 200:
+            logging.info('image_proess resp.status = %d, text=%s' %(r.status_code,
+                r.text))
 
     @task
     @tag('mobilenet')
@@ -78,9 +78,9 @@ class OpenWhiskUser(HttpUser):
         r = self.client.post(url, params=params,
             json=body, auth=auth, verify=False,
             name='/mobilenet')
-
-        logging.info('mobilenet resp.status = %d, text=%s' %(r.status_code,
-            r.text))
+        if r.status_code != 200:
+            logging.info('mobilenet resp.status = %d, text=%s' %(r.status_code,
+                r.text))
     @task
     @tag('video_process')
     def video_process(self):
@@ -99,5 +99,6 @@ class OpenWhiskUser(HttpUser):
             json=body, auth=auth, verify=False,
             name='/video_process')
 
-        logging.info('video_process resp.status = %d, text=%s' %(r.status_code,
-            r.text))
+        if r.status_code != 200:
+            logging.info('video_process resp.status = %d, text=%s' %(r.status_code,
+                r.text))
