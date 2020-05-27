@@ -1,7 +1,7 @@
 import random
 from locust import HttpUser, task, tag, between
 import base64
-import json
+import os
 from pathlib import Path
 import logging
 
