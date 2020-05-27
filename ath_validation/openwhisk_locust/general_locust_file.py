@@ -4,6 +4,7 @@ import base64
 import os
 from pathlib import Path
 import logging
+import numpy as np
 
 data_dir  = Path('/mnt/locust/faas_data')    # for docker usage
 image_dir = data_dir / 'image_process_base64'
@@ -34,12 +35,13 @@ pwd_1, pwd_2 = auth_str.strip().split(':')
 auth = (pwd_1, pwd_2)
 
 class OpenWhiskUser(HttpUser):
-    wait_time = between(5, 9)
-
-    # # return wait time in second
-    # def wait_time(self):
-    #     self.last_wait_time += 1
-    #     return self.last_wait_time
+    # wait_time = between(5, 9)
+    self.mean_iat = 60  # seconds
+    # return wait time in second
+    def wait_time(self):
+        return np.random.exponential(scale=self.mean_iat)
+        # self.last_wait_time += 1
+        # return self.last_wait_time
 
     @task
     @tag('image_process')
