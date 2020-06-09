@@ -1,2 +1,2 @@
 FROM locustio/locust
-RUN pip3 install requirements.txt
+RUN pip3 install numpy
