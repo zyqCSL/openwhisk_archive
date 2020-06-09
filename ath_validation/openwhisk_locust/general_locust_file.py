@@ -45,7 +45,7 @@ lr_review_words = ["fine", "fancy", "food", "good", "so so",
     "tian.ri.zhao.zhao", "ugly", "disgusting", "wu.ya", 
     "zuo.you.heng.tiao"]
 
-mean_iat = 60  # seconds
+mean_iat = 1  # seconds
 
 def compose_lr_review_text():
     global lr_review_words
