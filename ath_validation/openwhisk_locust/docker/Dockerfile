@@ -1,2 +1,3 @@
 FROM locustio/locust
-RUN pip install numpy
+ADD repositories /etc/apk/repositories
+RUN apk add --update python python-dev gfortran py-pip build-base py-numpy@community
