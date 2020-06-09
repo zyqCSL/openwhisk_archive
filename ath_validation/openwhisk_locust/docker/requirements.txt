@@ -1,2 +1,0 @@
-# packages for numerics
-numpy

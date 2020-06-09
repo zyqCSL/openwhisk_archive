@@ -55,10 +55,10 @@ def compose_lr_review_text():
 
 class OpenWhiskUser(HttpUser):
     # wait_time = between(5, 9)
-    self.mean_iat = 60  # seconds
+    mean_iat = 60  # seconds
     # return wait time in second
     def wait_time(self):
-        return np.random.exponential(scale=self.mean_iat)
+        return np.random.exponential(scale=mean_iat)
         # self.last_wait_time += 1
         # return self.last_wait_time
 
