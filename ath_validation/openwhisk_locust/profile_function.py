@@ -1,3 +1,6 @@
+# test
+# python3 ./profile_function.py --min-users 2 --max-users 3 --user-step 1 --exp-time 20s --warmup-time 5s --profile-time 20s --profile-users 2 --function mobilenet
+
 # assume docker version >= 1.13
 import sys
 import os
@@ -62,7 +65,7 @@ if not os.path.isdir(str(distr_data_dir)):
 script = Path.cwd() / ('test_' + function + '.sh')
 assert os.path.isfile(str(script))
 
-tested_users = range(min_users, max_users, user_step)
+tested_users = range(min_users, max_users+1, user_step)
 print('users')
 print(tested_users)
 
@@ -71,9 +74,12 @@ def run_mpstat(test_time, file_handle):
 	p = subprocess.Popen(cmd, shell=True, stdout=file_handle)
 	return p
 
-def run_exp(test_time, user):
+def run_exp(test_time, user, quiet=False):
 	cmd = str(script) + ' ' + str(test_time) + ' ' + str(user)
-	p = subprocess.Popen(cmd, shell=True)
+	if not quiet:
+		p = subprocess.Popen(cmd, shell=True)
+	else:
+		p = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL)
 	return p
 
 def copy_locust_stats(dir_name):
@@ -104,10 +110,12 @@ def grep_function_distr(tail_len, distr_file):
 
 # check log
 log_init_length = controller_log_length()
+print('log_init_length = %d' %log_init_length)
 # profile function distr
 p = run_exp(test_time=profile_time, user=profile_users)
 p.wait()
 log_length = controller_log_length()
+print('log_length = %d' %log_length)
 
 distr_file = function + '_distr.txt'
 grep_function_distr(tail_len=log_length-log_init_length, distr_file=distr_file)
@@ -116,14 +124,14 @@ time.sleep(10)
 # stress test
 for u in tested_users:
 	# warumup
-	p = run_exp(test_time=warmup_time, user=u)
+	p = run_exp(test_time=warmup_time, user=u, quiet=True)
 	p.wait()
 	# time.sleep(10)
 	# real exp
-	mpstat_file = data_dir / 'mpstat_' + function + '_user_' + str(u) + '.txt'
+	mpstat_file = str(data_dir / ('mpstat_' + function + '_user_' + str(u) + '.txt'))
 	f = open(mpstat_file, 'w+')
 	pm = run_mpstat(test_time=exp_time, file_handle=f)
-	pl = run_exp(test_time=exp_time, user=u)
+	pl = run_exp(test_time=exp_time, user=u, quiet=True)
 
 	pl.wait()
 	pm.wait()
