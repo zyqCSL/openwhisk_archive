@@ -37,7 +37,7 @@ parser.add_argument('--user-step', dest='user_step', type=int, required=True)
 parser.add_argument('--exp-time', dest='exp_time', type=str, default='5m')
 parser.add_argument('--warmup-time', dest='warmup_time', type=str, default='1m')
 parser.add_argument('--profile-users', dest='profile_users', type=int, required=True)
-parser.add_argument('--profile-time', dest='profile_time', type=str, required='20m')
+parser.add_argument('--profile-time', dest='profile_time', type=str, default='20m')
 args = parser.parse_args()
 
 function = args.function
