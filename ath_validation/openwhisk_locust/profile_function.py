@@ -70,14 +70,14 @@ print('users')
 print(tested_users)
 
 def run_mpstat(test_time, file_handle):
-	cmd = 'mpstat mpstat -P ALL 1 ' + str(test_time)
+	cmd = 'mpstat -P ALL 1 ' + str(test_time)
 	p = subprocess.Popen(cmd, shell=True, stdout=file_handle)
 	return p
 
 def run_exp(test_time, user, quiet=False):
 	cmd = str(script) + ' ' + str(test_time) + ' ' + str(user)
 	if not quiet:
-		p = subprocess.Popen(cmd, shell=True, stderr=subprocess.DEVNULL)
+		p = subprocess.Popen(cmd, shell=True)
 	else:
 		p = subprocess.Popen(cmd, shell=True, 
 			stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -139,7 +139,7 @@ for u in tested_users:
 	f.flush()
 	f.close()
 
-	dir_name = 'locust_' + function + '_user_' + str(u) + '.txt'
+	dir_name = 'locust_' + function + '_user_' + str(u)
 	copy_locust_stats(dir_name)
 	time.sleep(10)
 
