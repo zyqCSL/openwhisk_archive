@@ -69,8 +69,17 @@ tested_users = range(min_users, max_users+1, user_step)
 print('users')
 print(tested_users)
 
+def change_time(time_str):
+	if 'm' in time_str:
+		return int(time_str.replace('m', '')) * 60
+	elif 's' in time_str:
+		return int(time_str.replace('s', ''))
+	else:
+		return int(time_str)
+
 def run_mpstat(test_time, file_handle):
-	cmd = 'mpstat -P ALL 1 ' + str(test_time)
+	cmd = 'mpstat -P ALL 1 ' + str(change_time(test_time))
+	print(cmd)
 	p = subprocess.Popen(cmd, shell=True, stdout=file_handle)
 	return p
 
@@ -86,7 +95,7 @@ def run_exp(test_time, user, quiet=False):
 def copy_locust_stats(dir_name):
 	full_path = data_dir / dir_name
 	cmd = 'cp -r ' + str(locust_stats_dir)  + ' ' + str(full_path)
-	subprocess.call(cmd, stdout=sys.stdout, stderr=sys.stderr)
+	subprocess.call(cmd, shell=True, stdout=sys.stdout, stderr=sys.stderr)
 
 def controller_log_length():
 	l = 0
