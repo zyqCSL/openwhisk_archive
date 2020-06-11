@@ -77,14 +77,15 @@ def run_mpstat(test_time, file_handle):
 def run_exp(test_time, user, quiet=False):
 	cmd = str(script) + ' ' + str(test_time) + ' ' + str(user)
 	if not quiet:
-		p = subprocess.Popen(cmd, shell=True)
+		p = subprocess.Popen(cmd, shell=True, stderr=subprocess.DEVNULL)
 	else:
-		p = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL)
+		p = subprocess.Popen(cmd, shell=True, 
+			stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 	return p
 
 def copy_locust_stats(dir_name):
 	full_path = data_dir / dir_name
-	cmd = 'cp -r ' + locust_stats_dir  + ' ' + str(full_path)
+	cmd = 'cp -r ' + str(locust_stats_dir)  + ' ' + str(full_path)
 	subprocess.call(cmd, stdout=sys.stdout, stderr=sys.stderr)
 
 def controller_log_length():
