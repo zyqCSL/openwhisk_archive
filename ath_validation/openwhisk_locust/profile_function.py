@@ -73,7 +73,7 @@ def run_mpstat(test_time, file_handle):
 
 def run_exp(test_time, user):
 	cmd = str(script) + ' ' + str(test_time) + ' ' + str(user)
-	p = subprocess.Popen(cmd, shell=True, stdout=file_handle)
+	p = subprocess.Popen(cmd, shell=True)
 	return p
 
 def copy_locust_stats(dir_name):
