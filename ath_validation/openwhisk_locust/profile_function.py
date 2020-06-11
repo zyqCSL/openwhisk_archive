@@ -1,5 +1,5 @@
 # test
-# python3 ./profile_function.py --min-users 2 --max-users 3 --user-step 1 --exp-time 20s --warmup-time 5s --profile-time 20s --profile-users 2 --function mobilenet
+# python3 ./profile_function.py --min-users 5 --max-users 30 --user-step 5 --profile-users 10 --function mobilenet
 
 # assume docker version >= 1.13
 import sys
@@ -134,14 +134,14 @@ time.sleep(10)
 # stress test
 for u in tested_users:
 	# warumup
-	p = run_exp(test_time=warmup_time, user=u, quiet=True)
+	p = run_exp(test_time=warmup_time, user=u)
 	p.wait()
 	# time.sleep(10)
 	# real exp
 	mpstat_file = str(data_dir / ('mpstat_' + function + '_user_' + str(u) + '.txt'))
 	f = open(mpstat_file, 'w+')
 	pm = run_mpstat(test_time=exp_time, file_handle=f)
-	pl = run_exp(test_time=exp_time, user=u, quiet=True)
+	pl = run_exp(test_time=exp_time, user=u)
 
 	pl.wait()
 	pm.wait()
