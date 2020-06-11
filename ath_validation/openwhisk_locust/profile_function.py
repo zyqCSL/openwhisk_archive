@@ -72,7 +72,7 @@ def run_mpstat(test_time, file_handle):
 	return p
 
 def run_exp(test_time, user):
-	cmd = script + ' ' + str(test_time) + ' ' + str(user)
+	cmd = str(script) + ' ' + str(test_time) + ' ' + str(user)
 	p = subprocess.Popen(cmd, shell=True, stdout=file_handle)
 	return p
 
