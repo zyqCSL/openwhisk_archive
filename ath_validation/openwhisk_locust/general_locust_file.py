@@ -91,7 +91,10 @@ class OpenWhiskUser(HttpUser):
 
         t3 = time.time()
 
-        if t3 - t1 >= 50:
+        if t3 - t1 >= 30:
+            logging.warning('long image_process exe_time=%.2f, img=%s, prepare_time=%.2f, pure_exe_time=%.2f' %(
+                t3-t1, img, t2-t1, t3-t2))
+        else:
             logging.info('long image_process exe_time=%.2f, img=%s, prepare_time=%.2f, pure_exe_time=%.2f' %(
                 t3-t1, img, t2-t1, t3-t2))
 
@@ -122,8 +125,11 @@ class OpenWhiskUser(HttpUser):
 
         t3 = time.time()
 
-        if t3 - t1 >= 50:
-            logging.info('long mobilenet exe_time=%.2f, img=%s, prepare_time=%.2f, pure_exe_time=%.2f' %(
+        if t3 - t1 >= 30:
+            logging.warning('long mobilenet exe_time=%.2f, img=%s, prepare_time=%.2f, pure_exe_time=%.2f' %(
+                t3-t1, img, t2-t1, t3-t2))
+        else:
+            logging.info('mobilenet exe_time=%.2f, img=%s, prepare_time=%.2f, pure_exe_time=%.2f' %(
                 t3-t1, img, t2-t1, t3-t2))
 
 
