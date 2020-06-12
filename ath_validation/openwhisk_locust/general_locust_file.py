@@ -74,9 +74,13 @@ class OpenWhiskUser(HttpUser):
 
         url = '/api/v1/namespaces/_/actions/image_process'
 
+        t1 = time.time()
+
         img = random.choice(image_names)
         body = {}
         body['image'] = image_data[img]
+
+        t2 = time.time()
 
         r = self.client.post(url, params=params,
             json=body, auth=auth, verify=False,
@@ -84,6 +88,12 @@ class OpenWhiskUser(HttpUser):
         if r.status_code != 200:
             logging.info('image_process resp.status = %d, text=%s' %(r.status_code,
                 r.text))
+
+        t3 = time.time()
+
+        if t3 - t1 >= 50:
+            logging.info('long image_process exe_time=%.2f, img=%s, prepare_time=%.2f, pure_exe_time=%.2f' %(
+                t3-t1, img, t2-t1, t3-t2))
 
     @task
     @tag('mobilenet')
@@ -113,8 +123,8 @@ class OpenWhiskUser(HttpUser):
         t3 = time.time()
 
         if t3 - t1 >= 50:
-            logging.info('long mobilenet exe_time=%.2f, img=%s, prepare_time=%.2f, pure_exe_time=%.2f',
-                %(t3-t1, img, t2-t1, t3-t2))
+            logging.info('long mobilenet exe_time=%.2f, img=%s, prepare_time=%.2f, pure_exe_time=%.2f' %(
+                t3-t1, img, t2-t1, t3-t2))
 
 
 
