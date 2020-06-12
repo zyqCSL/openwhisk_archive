@@ -16,8 +16,8 @@ image_names = []
 mobilenet_names = []
 
 logging.basicConfig(level=logging.INFO,
-                    filename='/mnt/locust_log/locust_openwhisk_log.txt',
-                    filemode='w+',
+                    # filename='/mnt/locust_log/locust_openwhisk_log.txt',
+                    # filemode='w+',
                     format='%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
 for img in os.listdir(str(image_dir)):
