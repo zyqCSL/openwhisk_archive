@@ -2,4 +2,4 @@ docker run -v $PWD:/mnt/locust -v $HOME/openwhisk_locust_log:/mnt/locust_log yz2
 	-f /mnt/locust/general_locust_file.py \
 	--csv=/mnt/locust_log/mobilenet --headless -t $1 \
 	--host https://172.17.0.1 --users $2 \
-	--tags mobilenet
+	--tags mobilenet --logfile /home/yz2297/openwhisk_locust_log/locust_openwhisk_log.txt
