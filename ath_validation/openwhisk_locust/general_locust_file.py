@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import logging
 import numpy as np
+import time
 
 data_dir  = Path('/mnt/locust/faas_data')    # for docker usage
 image_dir = data_dir / 'image_process_base64'
@@ -93,10 +94,14 @@ class OpenWhiskUser(HttpUser):
 
         url = '/api/v1/namespaces/_/actions/mobilenet'
 
+        t1 = time.time()
+
         img = random.choice(image_names)
         body = {}
         body['image'] = image_data[img]
         body['format'] = img.split('.')[-1]
+
+        t2 = time.time()
 
         r = self.client.post(url, params=params,
             json=body, auth=auth, verify=False,
@@ -104,6 +109,15 @@ class OpenWhiskUser(HttpUser):
         if r.status_code != 200:
             logging.info('mobilenet resp.status = %d, text=%s' %(r.status_code,
                 r.text))
+
+        t3 = time.time()
+
+        if t3 - t1 >= 50:
+            logging.info('long mobilenet exe_time=%.2f, img=%s, prepare_time=%.2f, pure_exe_time=%.2f',
+                %(t3-t1, img, t2-t1, t3-t2))
+
+
+
     @task
     @tag('video_process')
     def video_process(self):
