@@ -178,7 +178,7 @@ for u in tested_users:
 			print(aid)
 			while True:
 				record = get_activation_by_id(aid)
-				if record == None:
+				if record['error'] == 'not_found':
 					print('wait for couchdb...')
 					time.sleep(5)
 				else:
