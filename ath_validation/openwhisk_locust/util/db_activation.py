@@ -39,7 +39,8 @@ def get_activation_by_id(activation_id):
                             'execution_stats': True
                         },
                         auth=(DB_USERNAME, DB_PASSWORD))
-    activations = json.loads(res.text)['docs']
-    if not activations:
-        return None
-    return activations[0]
+    activations = json.loads(res.text)
+    return activations
+    # if not activations:
+    #     return None
+    # return activations[0]

@@ -177,12 +177,12 @@ for u in tested_users:
 		for aid in aids[action]:
 			print(aid)
 			while True:
-				doc = get_activation_by_id(aid)
-				if doc == None:
+				record = get_activation_by_id(aid)
+				if record == None:
 					print('wait for couchdb...')
 					time.sleep(5)
 				else:
-					print(doc)
+					print(record)
 					break
 
 	dir_name = 'locust_' + function + '_user_' + str(u)
