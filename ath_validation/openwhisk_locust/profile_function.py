@@ -113,7 +113,7 @@ def get_activation_ids():
 				aids[action] += [aid]
 	return aids
 
-def clear_locust_state(dir_name):
+def clear_locust_state():
 	for fn in os.listdir(str(locust_stats_dir)):
 		full_path = locust_stats_dir / fn
 		os.remove(str(full_path))

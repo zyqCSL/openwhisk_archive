@@ -121,8 +121,6 @@ class OpenWhiskUser(HttpUser):
         except:
             logging.error('mobilenet response json parsing error')
 
-
-
     @task
     @tag('video_process')
     def video_process(self):
