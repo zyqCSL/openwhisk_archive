@@ -106,12 +106,15 @@ def get_activation_ids():
 		lines = f.readlines()
 		for line in lines:
 			if 'aid--' in line:
+				# print(line)
 				data = line.split('aid--')[-1]
 				action, aid = data.split(':')
 				aid = aid.replace('\n', '').strip()
 				if action not in aids:
 					aids[action] = []
-				aids[action] += [aid]
+				aids[action].append(aid)
+				# print(aid)
+				# print('')
 	return aids
 
 def clear_locust_state():
@@ -152,6 +155,7 @@ def grep_function_distr(tail_len, distr_file):
 # distr_file = function + '_distr.txt'
 # grep_function_distr(tail_len=log_length-log_init_length, distr_file=distr_file)
 
+clear_locust_state()
 time.sleep(10)
 # stress test
 for u in tested_users:
@@ -177,11 +181,16 @@ for u in tested_users:
 		print('action %s' %action)
 		for aid in aids[action]:
 			print(aid)
+			time_out = 0
 			while True:
 				record = get_activation_by_id(aid)
 				if record['error'] == 'not_found':
 					print('wait for couchdb...')
 					time.sleep(5)
+					time_out += 1
+					if time_out == 4:
+						print('activation lost in couchdb')
+						break
 				else:
 					print(record)
 					break

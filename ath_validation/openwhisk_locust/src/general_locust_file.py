@@ -115,7 +115,7 @@ class OpenWhiskUser(HttpUser):
         if r.status_code > 202:
             logging.warning('mobilenet resp.status = %d, text=%s' %(r.status_code,
                 r.text))
-        logging.info('resp.text=%s' %r.text)
+        # logging.info('resp.text=%s' %r.text)
         try:
             aid = json.loads(r.text)['activationId']
             logging.info('aid--mobilenet:%s' %aid)
