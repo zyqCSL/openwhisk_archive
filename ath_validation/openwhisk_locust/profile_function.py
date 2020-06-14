@@ -199,11 +199,11 @@ for u in tested_users:
 					duration = record['duration']
 					wait = 0
 					for d in record['annotations']:
-					if d['key'] == 'waitTime':
+						if d['key'] == 'waitTime':
 							wait = d['value']
 							break
-						action_records[record].append([duration+wait, duration, wait])
-						break
+					action_records[record].append([duration+wait, duration, wait])
+					break
 
 	dir_name = 'locust_' + function + '_user_' + str(u)
 	copy_locust_stats(dir_name)
