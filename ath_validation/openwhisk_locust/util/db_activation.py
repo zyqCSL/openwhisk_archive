@@ -30,15 +30,12 @@ def get_activations(timestamp_since, limit=25):
     activations = json.loads(res.text)['docs']
     return activations
 
-def get_activation_by_id(activation_id):
-    res = requests.post(url=DB_PROTOCOL + '://' + DB_HOST + ':' + DB_PORT + '/' + 'local_activations/_find',
-                        json={
-                            'selector': {
-                                'activationId': {'$eq': activation_id}
-                            },
-                            'execution_stats': True
-                        },
+def get_activation_by_id(activation_id, namespace='guest'):
+    url = DB_PROTOCOL + '://' + DB_HOST + ':' + DB_PORT + '/' + 'whisk_local_activations/' + \
+        + namespace + '%2F' + activation_id
+    res = requests.post(url=url,
                         auth=(DB_USERNAME, DB_PASSWORD))
+
     activations = json.loads(res.text)
     return activations
     # if not activations:
