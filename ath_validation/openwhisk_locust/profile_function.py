@@ -188,7 +188,7 @@ for u in tested_users:
 			time_out = 0
 			while True:
 				record = get_activation_by_id(aid)
-				if record['error'] == 'not_found':
+				if record == None:
 					print('wait for couchdb...')
 					time.sleep(5)
 					time_out += 1

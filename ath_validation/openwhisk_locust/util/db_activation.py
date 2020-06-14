@@ -42,5 +42,8 @@ def get_activation_by_id(activation_id, namespace='guest'):
                         headers=headers,
                         auth=(DB_USERNAME, DB_PASSWORD))
 
-    activations = json.loads(res.text)
-    return activations
+    activation = json.loads(res.text)
+    if 'duration' not in activation or 'annotations' not in activation:
+        return None
+
+    return activation
