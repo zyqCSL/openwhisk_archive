@@ -100,7 +100,7 @@ def copy_locust_stats(dir_name):
 	subprocess.call(cmd, shell=True, stdout=sys.stdout, stderr=sys.stderr)
 
 def get_activation_ids():
-	full_path = Path.cwd() / 'logs' / 'locust_openwhisk_log.txt'
+	full_path = locust_stats_dir / 'locust_openwhisk_log.txt'
 	aids = {}	# indexed by function name
 	with open(str(full_path), 'r') as f:
 		lines = f.readlines()
