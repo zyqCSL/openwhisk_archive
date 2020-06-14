@@ -15,6 +15,7 @@ import logging
 import subprocess
 from pathlib import Path
 import copy
+import shutil
 
 from pathlib import Path
 sys.path.append(str(Path.cwd() / 'util'))
@@ -51,8 +52,8 @@ warmup_time = args.warmup_time
 profile_users = args.profile_users
 profile_time = args.profile_time
 
-data_dir = Path.cwd() / 'data' / 'exp_data_locust'
-distr_data_dir = Path.cwd() / 'data' / 'exp_data_locust' / 'distr'
+data_dir = Path.cwd() / 'data' / 
+distr_data_dir = Path.cwd() / 'data' / 'distr'
 locust_stats_dir = Path.home() / 'openwhisk_locust_log'
 
 # openwhisk
@@ -96,8 +97,7 @@ def run_exp(test_time, user, quiet=False):
 
 def copy_locust_stats(dir_name):
 	full_path = data_dir / dir_name
-	cmd = 'cp -r ' + str(locust_stats_dir)  + ' ' + str(full_path)
-	subprocess.call(cmd, shell=True, stdout=sys.stdout, stderr=sys.stderr)
+	shutil.copytree(str(locust_stats_dir), str(full_path))
 
 def get_activation_ids():
 	full_path = locust_stats_dir / 'locust_openwhisk_log.txt'
@@ -144,6 +144,7 @@ print('log_init_length = %d' %log_init_length)
 # profile function distr
 p = run_exp(test_time=profile_time, user=profile_users)
 p.wait()
+time.sleep(120)
 log_length = controller_log_length()
 print('log_length = %d' %log_length)
 

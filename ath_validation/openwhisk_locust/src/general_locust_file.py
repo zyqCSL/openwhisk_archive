@@ -6,6 +6,7 @@ from pathlib import Path
 import logging
 import numpy as np
 import time
+import json
 
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -85,7 +86,7 @@ class OpenWhiskUser(HttpUser):
         r = self.client.post(url, params=params,
             json=body, auth=auth, verify=False,
             name="/image_process")
-        if r.status_code != 200:
+        if r.status_code > 202:
             logging.warning('image_process resp.status = %d, text=%s' %(r.status_code,
                 r.text))
         try:
@@ -111,7 +112,7 @@ class OpenWhiskUser(HttpUser):
         r = self.client.post(url, params=params,
             json=body, auth=auth, verify=False,
             name='/mobilenet')
-        if r.status_code != 200:
+        if r.status_code > 202:
             logging.warning('mobilenet resp.status = %d, text=%s' %(r.status_code,
                 r.text))
 
@@ -139,7 +140,7 @@ class OpenWhiskUser(HttpUser):
             json=body, auth=auth, verify=False,
             name='/video_process')
 
-        if r.status_code != 200:
+        if r.status_code > 202:
             logging.warning('video_process resp.status = %d, text=%s' %(r.status_code,
                 r.text))
 
@@ -164,7 +165,7 @@ class OpenWhiskUser(HttpUser):
             json=body, auth=auth, verify=False,
             name='/lr_review')
 
-        if r.status_code != 200:
+        if r.status_code > 202:
             logging.warning('lr_review resp.status = %d, text=%s' %(r.status_code,
                 r.text))
 
@@ -191,7 +192,7 @@ class OpenWhiskUser(HttpUser):
             json=body, auth=auth, verify=False,
             name='/chameleon')
 
-        if r.status_code != 200:
+        if r.status_code > 202:
             logging.warning('chameleon resp.status = %d, text=%s' %(r.status_code,
                 r.text))
 
@@ -216,7 +217,7 @@ class OpenWhiskUser(HttpUser):
             json=body, auth=auth, verify=False,
             name='/float_op')
 
-        if r.status_code != 200:
+        if r.status_code > 202:
             logging.warning('float_op resp.status = %d, text=%s' %(r.status_code,
                 r.text))
 
@@ -241,7 +242,7 @@ class OpenWhiskUser(HttpUser):
             json=body, auth=auth, verify=False,
             name='/linpack')
 
-        if r.status_code != 200:
+        if r.status_code > 202:
             logging.warning('linpack resp.status = %d, text=%s' %(r.status_code,
                 r.text))
 
@@ -266,7 +267,7 @@ class OpenWhiskUser(HttpUser):
             json=body, auth=auth, verify=False,
             name='/matmult')
 
-        if r.status_code != 200:
+        if r.status_code > 202:
             logging.warning('matmult resp.status = %d, text=%s' %(r.status_code,
                 r.text))
 
@@ -293,7 +294,7 @@ class OpenWhiskUser(HttpUser):
             json=body, auth=auth, verify=False,
             name='/pyaes')
 
-        if r.status_code != 200:
+        if r.status_code > 202:
             logging.warning('pyaes resp.status = %d, text=%s' %(r.status_code,
                 r.text))
 
