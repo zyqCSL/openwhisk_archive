@@ -1,6 +1,8 @@
 # test
 # python3 ./profile_function.py --min-users 5 --max-users 30 --user-step 5 --profile-users 10 --function mobilenet
 
+# Profile functions that are invoked in blocking manner
+
 # assume docker version >= 1.13
 import sys
 import os
@@ -16,8 +18,6 @@ from pathlib import Path
 import copy
 
 from pathlib import Path
-sys.path.append(str(Path.cwd() / 'util'))
-from db_activation import *
 
 # from socket import SOCK_STREAM, socket, AF_INET, SOL_SOCKET, SO_REUSEADDR
 
@@ -63,7 +63,7 @@ if not os.path.isdir(str(data_dir)):
 if not os.path.isdir(str(distr_data_dir)):
 	os.makedirs(str(distr_data_dir))
 
-script = Path.cwd() / 'scripts' / ('test_action.sh')
+script = Path.cwd() / 'scripts' / ('test_' + function + '.sh')
 assert os.path.isfile(str(script))
 
 tested_users = range(min_users, max_users+1, user_step)
@@ -85,7 +85,7 @@ def run_mpstat(test_time, file_handle):
 	return p
 
 def run_exp(test_time, user, quiet=False):
-	cmd = str(script) + ' ' + str(test_time) + ' ' + str(user) + ' ' + function
+	cmd = str(script) + ' ' + str(test_time) + ' ' + str(user)
 	if not quiet:
 		p = subprocess.Popen(cmd, shell=True)
 	else:
@@ -97,20 +97,6 @@ def copy_locust_stats(dir_name):
 	full_path = data_dir / dir_name
 	cmd = 'cp -r ' + str(locust_stats_dir)  + ' ' + str(full_path)
 	subprocess.call(cmd, shell=True, stdout=sys.stdout, stderr=sys.stderr)
-
-def get_activation_ids():
-	full_path = Path.cwd() / 'logs' / 'locust_openwhisk_log.txt'
-	aids = {}	# indexed by function name
-	with open(str(full_path), 'r') as f:
-		lines = f.readlines()
-		for line in lines:
-			if 'aid--' in line:
-				data = line.split('aid--')[-1]
-				action, aid = data.split(':')
-				if func not in aids:
-					aids[action] = []
-				aids[action] += [aid]
-	return aids
 
 def clear_locust_state(dir_name):
 	for fn in os.listdir(str(locust_stats_dir)):
@@ -136,6 +122,7 @@ def grep_function_distr(tail_len, distr_file):
 	with open(distr_file_path, 'w+') as f:
 		for l in chosen:
 			f.write(l + '\n')
+	
 
 # check log
 log_init_length = controller_log_length()
@@ -166,22 +153,6 @@ for u in tested_users:
 	pm.wait()
 	f.flush()
 	f.close()
-
-	# read activation data from db
-	aids = get_activation_ids()
-
-	for action in aids:
-		print('action %s' %action)
-		for aid in aids[action]:
-			print(aid)
-			while True:
-				doc = get_activation_by_id()
-				if doc == None:
-					print('wait for couchdb...')
-					time.sleep(5)
-				else:
-					print(doc)
-					break
 
 	dir_name = 'locust_' + function + '_user_' + str(u)
 	copy_locust_stats(dir_name)

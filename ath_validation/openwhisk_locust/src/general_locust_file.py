@@ -7,6 +7,9 @@ import logging
 import numpy as np
 import time
 
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 data_dir  = Path('/mnt/locust/faas_data')    # for docker usage
 image_dir = data_dir / 'image_process_base64'
 video_dir = data_dir / 'video_process_base64'
@@ -15,10 +18,12 @@ image_data = {}
 image_names = []
 mobilenet_names = []
 
-logging.basicConfig(level=logging.INFO,
-                    # filename='/mnt/locust_log/locust_openwhisk_log.txt',
-                    # filemode='w+',
-                    format='%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+# logging.basicConfig(level=logging.INFO,
+#                     # filename='/mnt/locust_log/locust_openwhisk_log.txt',
+#                     # filemode='w+',
+#                     format='%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+
+logging.basicConfig(level=logging.INFO)
 
 for img in os.listdir(str(image_dir)):
     full_path = image_dir / img
@@ -35,7 +40,7 @@ for video in os.listdir(str(video_dir)):
     with open(str(full_path), 'r') as f:
         video_data[video] = f.read()
 
-# get through wsk -i  property get --auth
+# get through: wsk -i  property get --auth
 auth_str = '23bc46b1-71f6-4ed5-8c54-816aa4f8c502:123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP'
 pwd_1, pwd_2 = auth_str.strip().split(':')
 auth = (pwd_1, pwd_2)
@@ -69,68 +74,52 @@ class OpenWhiskUser(HttpUser):
     @tag('image_process')
     def image_process(self):
         params = {}
-        params['blocking'] = 'true'
-        params['result'] = 'true'
+        # params['blocking'] = 'true'
+        # params['result'] = 'true'
 
         url = '/api/v1/namespaces/_/actions/image_process'
-
-        t1 = time.time()
-
         img = random.choice(image_names)
         body = {}
         body['image'] = image_data[img]
-
-        t2 = time.time()
 
         r = self.client.post(url, params=params,
             json=body, auth=auth, verify=False,
             name="/image_process")
         if r.status_code != 200:
-            logging.info('image_process resp.status = %d, text=%s' %(r.status_code,
+            logging.warning('image_process resp.status = %d, text=%s' %(r.status_code,
                 r.text))
+        try:
+            aid = json.loads(r.text)['activationId']
+            logging.info('aid--image_process:%s' %aid)
+        except:
+            logging.error('image_process response json parsing error')
 
-        t3 = time.time()
-
-        if t3 - t1 >= 30:
-            logging.warning('long image_process exe_time=%.2f, img=%s, prepare_time=%.2f, pure_exe_time=%.2f' %(
-                t3-t1, img, t2-t1, t3-t2))
-        else:
-            logging.info('long image_process exe_time=%.2f, img=%s, prepare_time=%.2f, pure_exe_time=%.2f' %(
-                t3-t1, img, t2-t1, t3-t2))
 
     @task
     @tag('mobilenet')
     def mobilenet(self):
         params = {}
-        params['blocking'] = 'true'
-        params['result'] = 'true'
+        # params['blocking'] = 'true'
+        # params['result'] = 'true'
 
         url = '/api/v1/namespaces/_/actions/mobilenet'
-
-        t1 = time.time()
-
         img = random.choice(image_names)
         body = {}
         body['image'] = image_data[img]
         body['format'] = img.split('.')[-1]
 
-        t2 = time.time()
-
         r = self.client.post(url, params=params,
             json=body, auth=auth, verify=False,
             name='/mobilenet')
         if r.status_code != 200:
-            logging.info('mobilenet resp.status = %d, text=%s' %(r.status_code,
+            logging.warning('mobilenet resp.status = %d, text=%s' %(r.status_code,
                 r.text))
 
-        t3 = time.time()
-
-        if t3 - t1 >= 30:
-            logging.warning('long mobilenet exe_time=%.2f, img=%s, prepare_time=%.2f, pure_exe_time=%.2f' %(
-                t3-t1, img, t2-t1, t3-t2))
-        else:
-            logging.info('mobilenet exe_time=%.2f, img=%s, prepare_time=%.2f, pure_exe_time=%.2f' %(
-                t3-t1, img, t2-t1, t3-t2))
+        try:
+            aid = json.loads(r.text)['activationId']
+            logging.info('aid--mobilenet:%s' %aid)
+        except:
+            logging.error('mobilenet response json parsing error')
 
 
 
@@ -138,8 +127,8 @@ class OpenWhiskUser(HttpUser):
     @tag('video_process')
     def video_process(self):
         params = {}
-        params['blocking'] = 'true'
-        params['result'] = 'true'
+        # params['blocking'] = 'true'
+        # params['result'] = 'true'
 
         url = '/api/v1/namespaces/_/actions/video_process'
 
@@ -153,15 +142,21 @@ class OpenWhiskUser(HttpUser):
             name='/video_process')
 
         if r.status_code != 200:
-            logging.info('video_process resp.status = %d, text=%s' %(r.status_code,
+            logging.warning('video_process resp.status = %d, text=%s' %(r.status_code,
                 r.text))
+
+        try:
+            aid = json.loads(r.text)['activationId']
+            logging.info('aid--video_process:%s' %aid)
+        except:
+            logging.error('video_process response json parsing error')
 
     @task
     @tag('lr_review')
     def lr_review(self):
         params = {}
-        params['blocking'] = 'true'
-        params['result'] = 'true'
+        # params['blocking'] = 'true'
+        # params['result'] = 'true'
 
         url = '/api/v1/namespaces/_/actions/lr_review'
         body = {}
@@ -172,15 +167,22 @@ class OpenWhiskUser(HttpUser):
             name='/lr_review')
 
         if r.status_code != 200:
-            logging.info('lr_review resp.status = %d, text=%s' %(r.status_code,
+            logging.warning('lr_review resp.status = %d, text=%s' %(r.status_code,
                 r.text))
+
+        try:
+            aid = json.loads(r.text)['activationId']
+            logging.info('aid--lr_review:%s' %aid)
+        except:
+            logging.error('lr_review response json parsing error')
+
 
     @task
     @tag('chameleon')
     def chameleon(self):
         params = {}
-        params['blocking'] = 'true'
-        params['result'] = 'true'
+        # params['blocking'] = 'true'
+        # params['result'] = 'true'
 
         url = '/api/v1/namespaces/_/actions/chameleon'
         body = {}
@@ -192,15 +194,21 @@ class OpenWhiskUser(HttpUser):
             name='/chameleon')
 
         if r.status_code != 200:
-            logging.info('chameleon resp.status = %d, text=%s' %(r.status_code,
+            logging.warning('chameleon resp.status = %d, text=%s' %(r.status_code,
                 r.text))
+
+        try:
+            aid = json.loads(r.text)['activationId']
+            logging.info('aid--chameleon:%s' %aid)
+        except:
+            logging.error('chameleon response json parsing error')
 
     @task
     @tag('float_op')
     def float_op(self):
         params = {}
-        params['blocking'] = 'true'
-        params['result'] = 'true'
+        # params['blocking'] = 'true'
+        # params['result'] = 'true'
 
         url = '/api/v1/namespaces/_/actions/float_op'
         body = {}
@@ -211,15 +219,21 @@ class OpenWhiskUser(HttpUser):
             name='/float_op')
 
         if r.status_code != 200:
-            logging.info('float_op resp.status = %d, text=%s' %(r.status_code,
+            logging.warning('float_op resp.status = %d, text=%s' %(r.status_code,
                 r.text))
+
+        try:
+            aid = json.loads(r.text)['activationId']
+            logging.info('aid--float_op:%s' %aid)
+        except:
+            logging.error('float_op response json parsing error')
 
     @task
     @tag('linpack')
     def linpack(self):
         params = {}
-        params['blocking'] = 'true'
-        params['result'] = 'true'
+        # params['blocking'] = 'true'
+        # params['result'] = 'true'
 
         url = '/api/v1/namespaces/_/actions/linpack'
         body = {}
@@ -230,15 +244,21 @@ class OpenWhiskUser(HttpUser):
             name='/linpack')
 
         if r.status_code != 200:
-            logging.info('linpack resp.status = %d, text=%s' %(r.status_code,
+            logging.warning('linpack resp.status = %d, text=%s' %(r.status_code,
                 r.text))
+
+        try:
+            aid = json.loads(r.text)['activationId']
+            logging.info('aid--linpack:%s' %aid)
+        except:
+            logging.error('linpack response json parsing error')
 
     @task
     @tag('matmult')
     def matmult(self):
         params = {}
-        params['blocking'] = 'true'
-        params['result'] = 'true'
+        # params['blocking'] = 'true'
+        # params['result'] = 'true'
 
         url = '/api/v1/namespaces/_/actions/matmult'
         body = {}
@@ -249,15 +269,22 @@ class OpenWhiskUser(HttpUser):
             name='/matmult')
 
         if r.status_code != 200:
-            logging.info('matmult resp.status = %d, text=%s' %(r.status_code,
+            logging.warning('matmult resp.status = %d, text=%s' %(r.status_code,
                 r.text))
+
+        try:
+            aid = json.loads(r.text)['activationId']
+            logging.info('aid--matmult:%s' %aid)
+        except:
+            logging.error('matmult response json parsing error')
+
 
     @task
     @tag('pyaes')
     def pyaes(self):
         params = {}
-        params['blocking'] = 'true'
-        params['result'] = 'true'
+        # params['blocking'] = 'true'
+        # params['result'] = 'true'
 
         url = '/api/v1/namespaces/_/actions/pyaes'
         body = {}
@@ -269,5 +296,12 @@ class OpenWhiskUser(HttpUser):
             name='/pyaes')
 
         if r.status_code != 200:
-            logging.info('pyaes resp.status = %d, text=%s' %(r.status_code,
+            logging.warning('pyaes resp.status = %d, text=%s' %(r.status_code,
                 r.text))
+
+        try:
+            aid = json.loads(r.text)['activationId']
+            logging.info('aid--pyaes:%s' %aid)
+        except:
+            logging.error('pyaes response json parsing error')
+
