@@ -10,7 +10,7 @@ import time
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-data_dir  = Path('/mnt/locust/faas_data')    # for docker usage
+data_dir  = Path('/mnt/faas_data')    # for docker usage
 image_dir = data_dir / 'image_process_base64'
 video_dir = data_dir / 'video_process_base64'
 
