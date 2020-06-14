@@ -44,6 +44,8 @@ def get_activation_by_id(activation_id, namespace='guest'):
 
     activation = json.loads(res.text)
     if 'duration' not in activation or 'annotations' not in activation:
+        print("Incomplete activation")
+        print(activation)
         return None
 
     return activation

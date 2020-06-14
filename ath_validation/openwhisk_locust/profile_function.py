@@ -98,6 +98,8 @@ def run_exp(test_time, user, quiet=False):
 
 def copy_locust_stats(dir_name):
 	full_path = data_dir / dir_name
+	if os.path.isdir(str(full_path)):
+		shutil.rmtree(ste(full_path))
 	shutil.copytree(str(locust_stats_dir), str(full_path))
 
 def get_activation_ids():
