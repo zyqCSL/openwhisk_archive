@@ -108,6 +108,7 @@ def get_activation_ids():
 			if 'aid--' in line:
 				data = line.split('aid--')[-1]
 				action, aid = data.split(':')
+				aid = aid.replace('\n', '').strip()
 				if action not in aids:
 					aids[action] = []
 				aids[action] += [aid]
