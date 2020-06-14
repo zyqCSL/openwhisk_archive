@@ -53,7 +53,7 @@ profile_time = args.profile_time
 
 data_dir = Path.cwd() / 'data' / 'exp_data_locust'
 distr_data_dir = Path.cwd() / 'data' / 'exp_data_locust' / 'distr'
-locust_stats_dir = Path.cwd() / 'data' / 'exp_data_locust' / 'logs'
+locust_stats_dir = Path.home() / 'openwhisk_locust_log'
 
 # openwhisk
 openwhisk_controller_log = Path('/tmp/wsklogs/controller0/controller0_logs.log')
