@@ -52,7 +52,7 @@ warmup_time = args.warmup_time
 profile_users = args.profile_users
 profile_time = args.profile_time
 
-data_dir = Path.cwd() / 'data' / 
+data_dir = Path.cwd() / 'data'
 distr_data_dir = Path.cwd() / 'data' / 'distr'
 locust_stats_dir = Path.home() / 'openwhisk_locust_log'
 
