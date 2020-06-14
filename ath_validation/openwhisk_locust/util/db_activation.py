@@ -6,8 +6,6 @@ import sys
 import requests
 import urllib3
 
-from .config import DB_HOST, DB_PASSWORD, DB_PORT, DB_PROTOCOL, DB_USERNAME
-
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # CrouchDB (from #OPENWHISK_DIR/ansible/db_local.ini)
