@@ -32,12 +32,15 @@ def get_activations(timestamp_since, limit=25):
 
 def get_activation_by_id(activation_id, namespace='guest'):
     url = DB_PROTOCOL + '://' + DB_HOST + ':' + DB_PORT + '/' + 'whisk_local_activations/' + \
-        + namespace + '%2F' + activation_id
-    res = requests.post(url=url,
+        namespace + '%2F' + activation_id
+
+    headers = {
+        'Content-Type': 'application/json',
+    }
+
+    res = requests.get(url=url,
+                        headers=headers,
                         auth=(DB_USERNAME, DB_PASSWORD))
 
     activations = json.loads(res.text)
     return activations
-    # if not activations:
-    #     return None
-    # return activations[0]

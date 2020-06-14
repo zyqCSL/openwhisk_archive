@@ -16,6 +16,7 @@ import subprocess
 from pathlib import Path
 import copy
 import shutil
+import csv
 
 from pathlib import Path
 sys.path.append(str(Path.cwd() / 'util'))
@@ -177,8 +178,11 @@ for u in tested_users:
 	# read activation data from db
 	aids = get_activation_ids()
 
+	action_records = {}
+
 	for action in aids:
 		print('action %s' %action)
+		action_records[action] = []
 		for aid in aids[action]:
 			print(aid)
 			time_out = 0
@@ -192,11 +196,25 @@ for u in tested_users:
 						print('activation lost in couchdb')
 						break
 				else:
-					print(record)
+					duration = record['duration']
+					wait = 0
+					for d in record['annotations']:
+        				if d['key'] == 'waitTime':
+            				wait = d['value']
+            				break
+            		action_records[record].append([duration+wait, duration, wait])
 					break
 
 	dir_name = 'locust_' + function + '_user_' + str(u)
 	copy_locust_stats(dir_name)
 	clear_locust_state()
+
+	for action in action_records:
+		with open(str(dir_name / 'latency_' + action + '.csv'), 'w+') as f:
+			lat_writer = csv.writer(f, delimiter=',')
+			lat_writer.writerow(['total', 'execution', 'wait'])
+			for t in action_records[action]:
+				lat_writer.writerow(t)
+
 	time.sleep(10)
 
