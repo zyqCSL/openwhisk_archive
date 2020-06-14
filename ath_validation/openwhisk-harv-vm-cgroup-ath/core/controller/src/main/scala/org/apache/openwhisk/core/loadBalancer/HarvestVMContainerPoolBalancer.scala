@@ -284,7 +284,7 @@ class HarvestVMContainerPoolBalancer(
       msg.cpuLimit = cpuLimit
 
       if(cpuUtil <= 0.0)
-        cpuUtil = cpuLimit
+        cpuUtil = 1.0  // assume each activation uses 1 cpu without profiling info
 
       // val invoker: Option[(InvokerInstanceId, Boolean)] = HarvestVMContainerPoolBalancer.schedule(
       //   action.limits.concurrency.maxConcurrent,

@@ -77,11 +77,11 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
   protected val cpuUtilNumCores:Int = 40
   protected val cpuUtilUpdatBatch:Int = 100
   protected val cpuUtilPercentile: Double = 0.75
-  protected val cpuLimitPercentile: Double = 0.99
+  protected val cpuLimitPercentile: Double = 0.999
   protected val functionSampleRate: Double = 1.0
   protected val functionSampleUseExpectation: Boolean = false
-  protected val cpuUtilWindow:Int = 50
-  protected val redundantRatio: Double = 1.001
+  protected val cpuUtilWindow:Int = 20
+  protected val redundantRatio: Double = 1.1
   protected val randomGen = Random
 
   case class InvocationSample(actionId: FullyQualifiedEntityName, cpuUtil: Double, 
@@ -99,14 +99,14 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
           functionCpuUtil.update(sample.actionId, estimated_cpu)
         // logging.info(this, s"dataProcessor functionCpuUtil updated") 
         val estimated_limit = math.ceil(cpu_limit * redundantRatio)
-        if(sample.updateCpuLimit)
-          functionCpuLimit.update(sample.actionId, estimated_limit)
-        else {
+        if(sample.updateCpuLimit) {
+          functionCpuLimit.update(sample.actionId, math.min(estimated_limit, 8.0))
+        } else {
            val curr_limit = functionCpuLimit.getOrElse(sample.actionId, 0.0)
            if(curr_limit < estimated_limit)
-            functionCpuLimit.update(sample.actionId, math.min(estimated_limit, 4.0))
+            functionCpuLimit.update(sample.actionId, math.min(estimated_limit, 8.0))
            else if(cpu_limit < math.floor(curr_limit/(redundantRatio*redundantRatio)))
-            functionCpuLimit.update(sample.actionId, math.min(math.ceil(curr_limit/redundantRatio), 4.0) )
+            functionCpuLimit.update(sample.actionId, math.min(math.ceil(curr_limit/redundantRatio), 8.0) )
         }
         logging.info(this, s"function ${sample.actionId.asString} raw_cpu_limit = ${cpu_limit} cpu_limit = ${functionCpuLimit.get(sample.actionId)}, cpu_usage = ${estimated_cpu}") 
     }
@@ -199,7 +199,7 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
       msg.activationId, {
         val timeoutHandler = actorSystem.scheduler.scheduleOnce(completionAckTimeout) {
           processCompletion(msg.activationId, msg.transid, forced = true, isSystemError = false, invoker = instance, 
-            cpuUtil = 0.0, exeTime = 0, totalTime = 0) // yanqi, default cpu util being 0.0
+            cpuUtil = cpuUtil, exeTime = 0, totalTime = 0) // yanqi, keep cpuUtil for timeout for invoker stats keeping
         }
 
         // please note: timeoutHandler.cancel must be called on all non-timeout paths, e.g. Success
