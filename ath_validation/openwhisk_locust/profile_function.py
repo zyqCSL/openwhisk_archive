@@ -202,7 +202,7 @@ for u in tested_users:
 						if d['key'] == 'waitTime':
 							wait = d['value']
 							break
-					action_records[record].append([duration+wait, duration, wait])
+					action_records[action].append([duration+wait, duration, wait])
 					break
 
 	dir_name = 'locust_' + function + '_user_' + str(u)
