@@ -31,6 +31,7 @@ import scala.util.Try
 import scala.io.Source
 import java.nio.file.{Paths, Files} // yanqi, check file exists
 import java.util.concurrent.locks.ReentrantReadWriteLock // yanqi, for updating resources
+import system.dispatcher  // yanqi, for periodic rsc check
 
 sealed trait WorkerState
 case object Busy extends WorkerState
@@ -92,20 +93,20 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
   var cgroupCpuUsage: Double = 0.0
   val resourceLock = new ReentrantReadWriteLock()
   // periodic resurce check
-  Scheduler.scheduleWaitAtMost(1.seconds)(() => {
+  system.scheduler.schedule(0 milliseconds, 1000 milliseconds) {
     // check resources assigned to harvest VM
     var cpu: Double = 1.0
     var memory: Int = 2048
 
     if(Files.exists(Paths.get(resourcePath))) {
-      val buffer = Source.fromFile(resourcePath)
-      val lines = buffer.getLines.toArray
+      val buffer_kvp = Source.fromFile(resourcePath)
+      val lines = buffer_kvp.getLines.toArray
       
       if(lines.size == 2) {
         cpu = lines(0).toDouble
         memory = lines(1).toInt
       }
-      buffer.close
+      buffer_kvp.close
     }
     if(cpu != availCpu || memory != availMemory.toMB) {
       // update
@@ -119,8 +120,9 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
 
     // check cpu usage of cgroup
     if(Files.exists(Paths.get(cgroupCpuPath))) {
-      val buffer = Source.fromFile(cgroupCpuPath)
-      val lines = buffer.getLines.toArray
+      val buffer_cgroup = Source.fromFile(cgroupCpuPath)
+      val lines = buffer_cgroup.getLines.toArray
+      var cpu_time: Double = 0.0
       if(lines.size == 1) {
         cpu_time = lines(0).toDouble
       }
@@ -138,12 +140,12 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
         prevCheckTime = curms
         cgroupCpuTime = cpu_time
       }
-      buffer.close
+      buffer_cgroup.close
     } else {
-      logging.warn(this, s"${cgroupCpuPath}MB, cpu changed to ${availCpu}")
+      logging.warn(s"${cgroupCpuPath}MB, cpu changed to ${availCpu}")
     }
 
-  })
+  }
 
   prewarmConfig.foreach { config =>
     logging.info(this, s"pre-warming ${config.count} ${config.exec.kind} ${config.cpuLimit.toString} ${config.memoryLimit.toString}")(
