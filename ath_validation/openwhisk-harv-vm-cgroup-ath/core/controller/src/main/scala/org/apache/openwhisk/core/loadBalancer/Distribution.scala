@@ -41,25 +41,27 @@ class Distribution(
     protected var accum_exe_time:Long = 0
 
     def addSample(sample: Double, exeTime: Long, useExpectation: Boolean): (Double, Double) =  {
-        window(window_ptr) = sample
-        window_ptr  = if(window_ptr  == _cpuUtilWindow - 1) { 0 } else { window_ptr + 1 }
-        window_size = if(window_size == _cpuUtilWindow)     { window_size } else { window_size + 1 }
+        // use exeTime > 0 to filter timeout handler
+        if(exeTime > 0) {
+            window(window_ptr) = sample
+            window_ptr  = if(window_ptr  == _cpuUtilWindow - 1) { 0 } else { window_ptr + 1 }
+            window_size = if(window_size == _cpuUtilWindow)     { window_size } else { window_size + 1 }
+            accum_exe_time = accum_exe_time + exeTime
+            accum_cpu_time_product = accum_cpu_time_product + (sample*exeTime).toLong
 
-        accum_exe_time = accum_exe_time + exeTime
-        accum_cpu_time_product = accum_cpu_time_product + (accum_exe_time*exeTime).toLong
+            // update distribution
+            numSamples = numSamples + 1
+            numNewSamples = numNewSamples + 1
+            var slot: Int = (math.ceil(sample/_step)).toInt
+            if(slot >= _numBins)
+                slot = _numBins - 1
+            samples(slot) = samples(slot) + 1
+        }
 
         var cpu_limit: Double = 0.0
         var cpu_limit_window: Double = 0.0
 
         var estimated_cpu: Double = 0.0
-
-        numSamples = numSamples + 1
-        numNewSamples = numNewSamples + 1
-        // update distribution
-        var slot: Int = (math.ceil(sample/_step)).toInt
-        if(slot >= _numBins)
-            slot = _numBins - 1
-        samples(slot) = samples(slot) + 1
 
         if(numNewSamples >= _updateBatch) {
             numNewSamples = 0

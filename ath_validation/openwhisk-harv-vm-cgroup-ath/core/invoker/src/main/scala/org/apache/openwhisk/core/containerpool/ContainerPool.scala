@@ -19,6 +19,7 @@ package org.apache.openwhisk.core.containerpool
 
 import akka.actor.{Actor, ActorRef, ActorRefFactory, Props}
 import org.apache.openwhisk.common.{AkkaLogging, LoggingMarkers, TransactionId}
+import org.apache.openwhisk.common.Scheduler  // yanqi, scheduler for periodic resource check
 import org.apache.openwhisk.core.connector.MessageFeed
 import org.apache.openwhisk.core.entity._
 import org.apache.openwhisk.core.entity.size._
@@ -29,6 +30,7 @@ import scala.concurrent.duration._
 import scala.util.Try
 import scala.io.Source
 import java.nio.file.{Paths, Files} // yanqi, check file exists
+import java.util.concurrent.locks.ReentrantReadWriteLock // yanqi, for updating resources
 
 sealed trait WorkerState
 case object Busy extends WorkerState
@@ -74,7 +76,7 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
   var overSubscribedRate: Double = 1.0
 
   var availMemory: ByteSize = poolConfig.userMemory
-  var availCpu: Double = 1.0
+  var availCpu: Double = 10.0
   // If all memory slots are occupied and if there is currently no container to be removed, than the actions will be
   // buffered here to keep order of computation.
   // Otherwise actions with small memory-limits could block actions with large memory limits.
@@ -82,9 +84,66 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
   val logMessageInterval = 10.seconds
 
   // yanqi, make invoker check its resources periodically
-  val resourceCheckInterval: Long = 1000 // check resource every 1000ms
+  // val resourceCheckInterval: Long = 1000 // check resource every 1000ms
   var prevCheckTime: Long = 0 
   val resourcePath = "/hypervkvp/.kvp_pool_0"
+  val cgroupCpuPath = "/sys/fs/cgroup/cpuacct/cgroup_harvest_vm/cpuacct.usage"
+  var cgroupCpuTime: Long = 0   // in ns
+  var cgroupCpuUsage: Double = 0.0
+  val resourceLock = new ReentrantReadWriteLock()
+  // periodic resurce check
+  Scheduler.scheduleWaitAtMost(1.seconds)(() => {
+    // check resources assigned to harvest VM
+    var cpu: Double = 1.0
+    var memory: Int = 2048
+
+    if(Files.exists(Paths.get(resourcePath))) {
+      val buffer = Source.fromFile(resourcePath)
+      val lines = buffer.getLines.toArray
+      
+      if(lines.size == 2) {
+        cpu = lines(0).toDouble
+        memory = lines(1).toInt
+      }
+      buffer.close
+    }
+    if(cpu != availCpu || memory != availMemory.toMB) {
+      // update
+      resourceLock.writeLock().lock()
+      availCpu = cpu
+      availMemory = ByteSize(memory, SizeUnits.MB)
+      resourceLock.writeLock().unlock()
+      
+      logging.warn(this, s"memory changed to ${memory}MB, cpu changed to ${availCpu}")
+    }
+
+    // check cpu usage of cgroup
+    if(Files.exists(Paths.get(cgroupCpuPath))) {
+      val buffer = Source.fromFile(cgroupCpuPath)
+      val lines = buffer.getLines.toArray
+      if(lines.size == 1) {
+        cpu_time = lines(0).toDouble
+      }
+      if(prevCheckTime == 0) {
+        prevCheckTime = System.nanoTime
+        cgroupCpuTime = cpu_time
+      } else {
+        var curms: Long = System.nanoTime
+        // update
+        resourceLock.writeLock().lock()
+        cgroupCpuUsage = ((cpu_time - cgroupCpuTime).toDouble / (curms - prevCheckTime))
+        cgroupCpuUsage = (cgroupCpuUsage * 1000).toInt/1000.0
+        resourceLock.writeLock().unlock()
+
+        prevCheckTime = curms
+        cgroupCpuTime = cpu_time
+      }
+      buffer.close
+    } else {
+      logging.warn(this, s"${cgroupCpuPath}MB, cpu changed to ${availCpu}")
+    }
+
+  })
 
   prewarmConfig.foreach { config =>
     logging.info(this, s"pre-warming ${config.count} ${config.exec.kind} ${config.cpuLimit.toString} ${config.memoryLimit.toString}")(
@@ -209,14 +268,22 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
             val isErrorLogged = r.retryLogDeadline.map(_.isOverdue).getOrElse(true)
             val retryLogDeadline = if (isErrorLogged) {
               // yanqi, add cpu and change memory limit
+              avail_mem_mb = 0
+              avail_cpu = 0
+
+              resourceLock.readLock().lock()
+              avail_cpu = availCpu
+              avail_mem_mb = availMemory.toMB
+              resourceLock.readLock().unlock()
+
               logging.error(
                 this,
                 s"Rescheduling Run message, too many message in the pool, " +
                   s"freePoolSize: ${freePool.size} containers and ${memoryConsumptionOf(freePool)} MB, ${cpuConsumptionOf(freePool)} cpus, " +
                   s"busyPoolSize: ${busyPool.size} containers and ${memoryConsumptionOf(busyPool)} MB, ${cpuConsumptionOf(busyPool)} cpus " +
                   // s"maxContainersMemory ${poolConfig.userMemory.toMB} MB, " +
-                  s"maxContainersMemory ${availMemory.toMB} MB , " +
-                  s"maxContainersCpu ${availCpu} , " +
+                  s"maxContainersMemory ${avail_mem_mb} MB , " +
+                  s"maxContainersCpu ${avail_cpu} , " +
                   s"userNamespace: ${r.msg.user.namespace.name}, action: ${r.action}, " +
                   s"needed memory: ${r.action.limits.memory.megabytes} MB, " +
                   s"needed cpu: ${cpuUtil} , " +
@@ -344,47 +411,67 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
     busyPool = busyPool - toDelete
   }
 
-  /**
-   * Calculate if there is enough free memory within a given pool.
-   *
-   * @param pool The pool, that has to be checked, if there is enough free memory.
-   * @param memory The amount of memory to check.
-   * @param cpu utilization (not limit) for the invocation
-   * @return true, if there is enough space for the given amount of memory.
-   */
-  def hasPoolSpaceFor[A](pool: Map[A, ContainerData], memory: ByteSize, cpuUtil: Double): Boolean = {
-    // yanqi, add periodic check of available resources
-    val curms: Long = System.currentTimeMillis()
-    if(curms - prevCheckTime >= resourceCheckInterval) {
-      var cpu: Double = 1.0
-      var memory: Int = 2048
+  // /**
+  //  * Calculate if there is enough free memory within a given pool.
+  //  *
+  //  * @param pool The pool, that has to be checked, if there is enough free memory.
+  //  * @param memory The amount of memory to check.
+  //  * @param cpu utilization (not limit) for the invocation
+  //  * @return true, if there is enough space for the given amount of memory.
+  //  */
+  // def hasPoolSpaceFor[A](pool: Map[A, ContainerData], memory: ByteSize, cpuUtil: Double): Boolean = {
+  //   // yanqi, add periodic check of available resources
+  //   val curms: Long = System.currentTimeMillis()
+  //   if(curms - prevCheckTime >= resourceCheckInterval) {
+  //     var cpu: Double = 1.0
+  //     var memory: Int = 2048
 
-      prevCheckTime = curms
-      if(Files.exists(Paths.get(resourcePath))) {
-        val buffer = Source.fromFile(resourcePath)
-        val lines = buffer.getLines.toArray
+  //     prevCheckTime = curms
+  //     if(Files.exists(Paths.get(resourcePath))) {
+  //       val buffer = Source.fromFile(resourcePath)
+  //       val lines = buffer.getLines.toArray
         
-        if(lines.size == 2) {
-          cpu = lines(0).toDouble
-          memory = lines(1).toInt
-        }
-        buffer.close
-      }
+  //       if(lines.size == 2) {
+  //         cpu = lines(0).toDouble
+  //         memory = lines(1).toInt
+  //       }
+  //       buffer.close
+  //     }
   
-      if(cpu != availCpu || memory != availMemory.toMB) {
-        availCpu = cpu
-        availMemory = ByteSize(memory, SizeUnits.MB)
-        logging.warn(this, s"memory changed to ${memory}MB, cpu changed to ${availCpu}")
-      }
-    }
+  //     if(cpu != availCpu || memory != availMemory.toMB) {
+  //       availCpu = cpu
+  //       availMemory = ByteSize(memory, SizeUnits.MB)
+  //       logging.warn(this, s"memory changed to ${memory}MB, cpu changed to ${availCpu}")
+  //     }
+  //   }
 
+  //   // debug only
+  //   // pool.map(k => logging.warn(this, s"pool container data activeActivations ${k._2.activeActivationCount}, cpuUtil ${k._2.cpuUtil}, cpuLimit ${k._2.cpuLimit}"))
+  //   // logging.warn(this, s"cpu consumption ${cpuConsumptionOf(pool) + cpuUtil}, total cpu ${availCpu}, enough rsc ${memoryConsumptionOf(pool) + memory.toMB <= availMemory.toMB && cpuConsumptionOf(pool) + cpuUtil <= availCpu*overSubscribedRate}")
+
+  //   // memoryConsumptionOf(pool) + memory.toMB <= poolConfig.userMemory.toMB
+  //   memoryConsumptionOf(pool) + memory.toMB <= availMemory.toMB && cpuConsumptionOf(pool) + cpuUtil <= availCpu*overSubscribedRate
+  // }
+
+  def hasPoolSpaceFor[A](pool: Map[A, ContainerData], memory: ByteSize, cpuUtil: Double): Boolean = {
     // debug only
     // pool.map(k => logging.warn(this, s"pool container data activeActivations ${k._2.activeActivationCount}, cpuUtil ${k._2.cpuUtil}, cpuLimit ${k._2.cpuLimit}"))
     // logging.warn(this, s"cpu consumption ${cpuConsumptionOf(pool) + cpuUtil}, total cpu ${availCpu}, enough rsc ${memoryConsumptionOf(pool) + memory.toMB <= availMemory.toMB && cpuConsumptionOf(pool) + cpuUtil <= availCpu*overSubscribedRate}")
 
     // memoryConsumptionOf(pool) + memory.toMB <= poolConfig.userMemory.toMB
-    memoryConsumptionOf(pool) + memory.toMB <= availMemory.toMB && cpuConsumptionOf(pool) + cpuUtil <= availCpu*overSubscribedRate
+    avail_mem_mb = 0
+    avail_cpu = 0
+    cpu_usage = 0.0
+
+    resourceLock.readLock().lock()
+    avail_cpu = availCpu
+    cpu_usage = cgroupCpuUsage
+    avail_mem_mb = availMemory.toMB
+    resourceLock.readLock().unlock()
+
+    memoryConsumptionOf(pool) + memory.toMB <= avail_mem_mb && cpu_usage + cpuUtil <= avail_cpu*overSubscribedRate
   }
+
 }
 
 object ContainerPool {
@@ -401,7 +488,12 @@ object ContainerPool {
 
   // yanqi, add cpu admission control
   protected[containerpool] def cpuConsumptionOf[A](pool: Map[A, ContainerData]): Double = {
-    pool.map(k => if(k._2.activeActivationCount > 0) k._2.cpuUtil else 0).sum
+    // pool.map(k => if(k._2.activeActivationCount > 0) k._2.cpuUtil else 0).sum
+    cpu_usage = 0.0
+    resourceLock.readLock().lock()
+    cpu_usage = cgroupCpuUsage
+    resourceLock.readLock().unlock()
+    cpu_usage
   }
 
   // yanqi, add cpuLimit & cpuUtil to schedule
