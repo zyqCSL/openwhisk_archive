@@ -19,7 +19,6 @@ package org.apache.openwhisk.core.containerpool
 
 import akka.actor.{Actor, ActorRef, ActorRefFactory, Props}
 import org.apache.openwhisk.common.{AkkaLogging, LoggingMarkers, TransactionId}
-import org.apache.openwhisk.common.Scheduler  // yanqi, scheduler for periodic resource check
 import org.apache.openwhisk.core.connector.MessageFeed
 import org.apache.openwhisk.core.entity._
 import org.apache.openwhisk.core.entity.size._
