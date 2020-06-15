@@ -82,6 +82,7 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
   protected val functionSampleUseExpectation: Boolean = false
   protected val cpuUtilWindow:Int = 20
   protected val redundantRatio: Double = 1.1
+  protected val provisionRatio: Double = 2.0
   protected val randomGen = Random
 
   case class InvocationSample(actionId: FullyQualifiedEntityName, cpuUtil: Double, 
@@ -100,13 +101,15 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
         // logging.info(this, s"dataProcessor functionCpuUtil updated") 
         val estimated_limit = math.ceil(cpu_limit * redundantRatio)
         if(sample.updateCpuLimit) {
-          functionCpuLimit.update(sample.actionId, math.min(estimated_limit, 8.0))
+          // force update when the function is invoked the first time
+          functionCpuLimit.update(sample.actionId, math.ceil(cpu_limit*provisionRatio))
         } else {
-           val curr_limit = functionCpuLimit.getOrElse(sample.actionId, 0.0)
-           if(curr_limit < estimated_limit)
-            functionCpuLimit.update(sample.actionId, math.min(estimated_limit, 8.0))
-           else if(cpu_limit < math.floor(curr_limit/(redundantRatio*redundantRatio)))
-            functionCpuLimit.update(sample.actionId, math.min(math.ceil(curr_limit/redundantRatio), 8.0) )
+          // update limit according to redundantRatio 
+          val curr_limit = functionCpuLimit.getOrElse(sample.actionId, 0.0)
+          if(curr_limit < estimated_limit)
+            functionCpuLimit.update(sample.actionId, estimated_limit)
+          // else if(cpu_limit < math.floor(curr_limit/(redundantRatio*redundantRatio)))
+          //   functionCpuLimit.update(sample.actionId, math.ceil(curr_limit/redundantRatio) )
         }
         logging.info(this, s"function ${sample.actionId.asString} raw_cpu_limit = ${cpu_limit} cpu_limit = ${functionCpuLimit.get(sample.actionId)}, cpu_usage = ${estimated_cpu}") 
     }

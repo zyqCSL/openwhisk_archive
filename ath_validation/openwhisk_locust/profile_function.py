@@ -145,18 +145,18 @@ def grep_function_distr(tail_len, distr_file):
 		for l in chosen:
 			f.write(l + '\n')
 
-# # check log
-# log_init_length = controller_log_length()
-# print('log_init_length = %d' %log_init_length)
-# # profile function distr
-# p = run_exp(test_time=profile_time, user=profile_users)
-# p.wait()
-# time.sleep(120)
-# log_length = controller_log_length()
-# print('log_length = %d' %log_length)
+# check log
+log_init_length = controller_log_length()
+print('log_init_length = %d' %log_init_length)
+# profile function distr
+p = run_exp(test_time=profile_time, user=profile_users)
+p.wait()
+time.sleep(120)
+log_length = controller_log_length()
+print('log_length = %d' %log_length)
 
-# distr_file = function + '_distr.txt'
-# grep_function_distr(tail_len=log_length-log_init_length, distr_file=distr_file)
+distr_file = function + '_distr.txt'
+grep_function_distr(tail_len=log_length-log_init_length, distr_file=distr_file)
 
 clear_locust_state()
 time.sleep(10)
@@ -165,6 +165,7 @@ for u in tested_users:
 	# warumup
 	p = run_exp(test_time=warmup_time, user=u)
 	p.wait()
+	time.sleep(30)
 	# time.sleep(10)
 	# real exp
 	mpstat_file = str(data_dir / ('mpstat_' + function + '_user_' + str(u) + '.txt'))
