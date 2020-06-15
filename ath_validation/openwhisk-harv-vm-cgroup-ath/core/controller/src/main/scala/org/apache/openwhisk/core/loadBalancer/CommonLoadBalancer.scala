@@ -94,7 +94,7 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
         // logging.info(this, s"In CommonLoadBalancer dataProcessor") 
         val (estimated_cpu, cpu_limit) = functionCpuUtilDistr.getOrElseUpdate(sample.actionId, 
                 new Distribution(cpuUtilNumCores, cpuUtilUpdatBatch, cpuUtilPercentile, cpuLimitPercentile, cpuUtilWindow))
-                .addSample(sample.cpuUtil, functionSampleUseExpectation)
+                .addSample(sample.cpuUtil, sample.exeTime, functionSampleUseExpectation)
         // logging.info(this, s"dataProcessor distribution set up") 
         if(estimated_cpu > 0)
           functionCpuUtil.update(sample.actionId, estimated_cpu)

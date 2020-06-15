@@ -37,10 +37,16 @@ class Distribution(
     protected var numNewSamples: Long = 0
     protected var numSamples: Long = 0
 
-    def addSample(sample: Double, useExpectation: Boolean): (Double, Double) =  {
+    protected var accum_cpu_time_product = 0
+    protected var accum_exe_time = 0
+
+    def addSample(sample: Double, exeTime: Long, useExpectation: Boolean): (Double, Double) =  {
         window(window_ptr) = sample
         window_ptr  = if(window_ptr  == _cpuUtilWindow - 1) { 0 } else { window_ptr + 1 }
         window_size = if(window_size == _cpuUtilWindow)     { window_size } else { window_size + 1 }
+
+        accum_exe_time = accum_exe_time + exeTime
+        accum_cpu_time_product = accum_cpu_time_product + accum_exe_time*exeTime
 
         var cpu_limit: Double = 0.0
         var cpu_limit_window: Double = 0.0
@@ -60,12 +66,13 @@ class Distribution(
             
             var i: Int = 0
             if(useExpectation) {
-                var accum_val: Long = 0
-                while(i < _numBins) {
-                    accum_val = accum_val + samples(i)*(i + 1)
-                    i = i + 1
-                }
-                estimated_cpu = accum_val * _step/numSamples
+                // var accum_val: Long = 0
+                // while(i < _numBins) {
+                //     accum_val = accum_val + samples(i)*(i + 1)
+                //     i = i + 1
+                // }
+                // estimated_cpu = accum_val * _step/numSamples
+                estimated_cpu = accum_cpu_time_product / accum_exe_time
             } else {
                 var cpu_limit_unknown: Boolean = true
                 var est_cpu_unknown: Boolean = true

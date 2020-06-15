@@ -1,2 +1,2 @@
-python3 ./profile_function.py --min-users 5 --max-users 30 --user-step 5 --profile-users 10 --function mobilenet
+python3 ./profile_function.py --min-users 10 --max-users 60 --user-step 10 --profile-users 20 --function mobilenet
 python3 ./profile_function.py --min-users 20 --max-users 100 --user-step 10 --profile-users 20 --function image_proc

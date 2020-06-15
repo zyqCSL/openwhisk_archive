@@ -193,9 +193,9 @@ for u in tested_users:
 				record = get_activation_by_id(aid)
 				if record == None:
 					print('wait for couchdb...')
-					time.sleep(5)
+					time.sleep(10)
 					time_out += 1
-					if time_out == 4:
+					if time_out == 10:
 						print('activation lost in couchdb')
 						break
 				else:
