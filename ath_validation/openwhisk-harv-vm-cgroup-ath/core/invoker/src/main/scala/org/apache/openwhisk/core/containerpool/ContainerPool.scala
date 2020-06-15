@@ -71,7 +71,7 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
   var prewarmedPool = immutable.Map.empty[ActorRef, ContainerData]
 
   // map fo function cpu utilization, used for cpu admission control
-  var overSubscribedRate: Double = 1.5
+  var overSubscribedRate: Double = 1.0
 
   var availMemory: ByteSize = poolConfig.userMemory
   var availCpu: Double = 1.0
