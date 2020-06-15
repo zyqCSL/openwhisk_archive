@@ -401,6 +401,7 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
 
           cgroupCheckTime = curns
           cgroupCpuTime = cpu_time
+          logging.warn(this, s"cgroupCpuUsage = ${cgroupCpuUsage}")
         }
         buffer_cgroup.close
       } else {
