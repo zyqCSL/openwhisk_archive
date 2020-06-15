@@ -61,7 +61,7 @@ class Distribution(
         var cpu_limit: Double = 0.0
         var cpu_limit_window: Double = 0.0
 
-        var estimated_cpu: Double = 0.0
+        var estimated_cpu: Double = accum_cpu_time_product.toDouble / accum_exe_time
 
         if(numNewSamples >= _updateBatch) {
             numNewSamples = 0

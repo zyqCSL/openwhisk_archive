@@ -75,12 +75,12 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
   // value for docker --cpus limit
   protected[loadBalancer] val functionCpuLimit = TrieMap[FullyQualifiedEntityName, Double]()
   protected val cpuUtilNumCores:Int = 40
-  protected val cpuUtilUpdatBatch:Int = 100
+  protected val cpuUtilUpdatBatch:Int = 20
   protected val cpuUtilPercentile: Double = 0.75
   protected val cpuLimitPercentile: Double = 0.999
   protected val functionSampleRate: Double = 1.0
   protected val functionSampleUseExpectation: Boolean = true
-  protected val cpuUtilWindow:Int = 20
+  protected val cpuUtilWindow:Int = 10
   protected val redundantRatio: Double = 1.1
   protected val provisionRatio: Double = 2.0
   protected val randomGen = Random
