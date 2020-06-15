@@ -37,8 +37,8 @@ class Distribution(
     protected var numNewSamples: Long = 0
     protected var numSamples: Long = 0
 
-    protected var accum_cpu_time_product = 0
-    protected var accum_exe_time = 0
+    protected var accum_cpu_time_product:Long = 0
+    protected var accum_exe_time:Long = 0
 
     def addSample(sample: Double, exeTime: Long, useExpectation: Boolean): (Double, Double) =  {
         window(window_ptr) = sample
@@ -46,7 +46,7 @@ class Distribution(
         window_size = if(window_size == _cpuUtilWindow)     { window_size } else { window_size + 1 }
 
         accum_exe_time = accum_exe_time + exeTime
-        accum_cpu_time_product = accum_cpu_time_product + accum_exe_time*exeTime
+        accum_cpu_time_product = accum_cpu_time_product + (accum_exe_time*exeTime).toLong
 
         var cpu_limit: Double = 0.0
         var cpu_limit_window: Double = 0.0
@@ -72,7 +72,7 @@ class Distribution(
                 //     i = i + 1
                 // }
                 // estimated_cpu = accum_val * _step/numSamples
-                estimated_cpu = accum_cpu_time_product / accum_exe_time
+                estimated_cpu = accum_cpu_time_product.toDouble / accum_exe_time
             } else {
                 var cpu_limit_unknown: Boolean = true
                 var est_cpu_unknown: Boolean = true
