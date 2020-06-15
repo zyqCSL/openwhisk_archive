@@ -210,9 +210,9 @@ for u in tested_users:
 	dir_name = 'locust_' + function + '_user_' + str(u)
 	copy_locust_stats(dir_name)
 	clear_locust_state()
-
+	csv_dir =  data_dir / dir_name
 	for action in action_records:
-		with open(str(dir_name / ('latency_' + action + '.csv')), 'w+') as f:
+		with open(str(csv_dir / ('latency_' + action + '.csv')), 'w+') as f:
 			lat_writer = csv.writer(f, delimiter=',')
 			lat_writer.writerow(['total', 'execution', 'wait'])
 			for t in action_records[action]:
