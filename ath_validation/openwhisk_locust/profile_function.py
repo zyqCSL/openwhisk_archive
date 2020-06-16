@@ -42,7 +42,7 @@ parser.add_argument('--user-step', dest='user_step', type=int, required=True)
 parser.add_argument('--exp-time', dest='exp_time', type=str, default='5m')
 parser.add_argument('--warmup-time', dest='warmup_time', type=str, default='1m')
 parser.add_argument('--profile-users', dest='profile_users', type=int, required=True)
-parser.add_argument('--profile-time', dest='profile_time', type=str, default='20m')
+parser.add_argument('--profile-time', dest='profile_time', type=str, default='10m')
 parser.add_argument('--iat', dest='iat', type=int, required=True)
 args = parser.parse_args()
 
@@ -198,7 +198,7 @@ for u in tested_users:
 					print('wait for couchdb...')
 					time.sleep(10)
 					time_out += 1
-					if time_out == 10:
+					if time_out == 3:
 						print('activation lost in couchdb')
 						break
 				else:
@@ -222,12 +222,12 @@ for u in tested_users:
 			for t in action_records[action]:
 				lat_writer.writerow(t)
 
-	time.sleep(10)
+	# time.sleep(10)
 	consecutive_low_use = 0
 	print('waiting for system to cool down...')
 	prev_idle = 0
 	prev_total = 0
-	while consecutive_low_use < 20:
+	while consecutive_low_use < 5:
 		time.sleep(1)
 		total, idle = check_proc_stat()
 		util = compute_cpu_util(prev_idle, prev_total, idle, total)
