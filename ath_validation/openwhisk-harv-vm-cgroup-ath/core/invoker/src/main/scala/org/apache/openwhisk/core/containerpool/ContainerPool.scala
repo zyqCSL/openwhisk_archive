@@ -153,8 +153,8 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
       if(cpuUtil <= 0)
         cpuUtil = r.action.limits.cpu.cores
 
-      // debug
-      logging.warn(this, s"receive Run cpu util ${cpuUtil}, cpu limit ${cpuLimit}")
+      // // debug
+      // logging.warn(this, s"receive Run cpu util ${cpuUtil}, cpu limit ${cpuLimit}")
 
       // Only process request, if there are no other requests waiting for free slots, or if the current request is the
       // next request to process
@@ -199,8 +199,8 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
           case Some(((actor, data), containerState)) =>
             //increment active count before storing in pool map
 
-            // debug
-            logging.warn(this, s"schedule container cpu util ${data.cpuUtil}, cpu limit ${data.cpuLimit}")
+            // // debug
+            // logging.warn(this, s"schedule container cpu util ${data.cpuUtil}, cpu limit ${data.cpuLimit}")
 
             val newData = data.nextRun(r)
             val container = newData.getContainer
