@@ -98,7 +98,7 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
     var sum_cpu: Double = 0
     var i: Int = 0
     while(i < cpu_usage_window_size) {
-      if cpu_usage_window(i) > 0 {
+      if(cpu_usage_window(i) > 0) {
         samples = samples + 1
         sum_cpu = sum_cpu + cpu_usage_window(i)
       }
