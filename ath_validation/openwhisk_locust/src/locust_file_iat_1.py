@@ -54,7 +54,7 @@ lr_review_words = ["fine", "fancy", "food", "good", "so so",
     "tian.ri.zhao.zhao", "ugly", "disgusting", "wu.ya", 
     "zuo.you.heng.tiao"]
 
-mean_iat = 10  # seconds
+mean_iat = 1  # seconds
 intervals = np.random.exponential(scale=mean_iat, size=5000)
 
 def compose_lr_review_text():
@@ -70,7 +70,9 @@ class OpenWhiskUser(HttpUser):
     # return wait time in second
     def wait_time(self):
         global intervals
-        return random.choice(intervals)
+        global mean_iat
+        return np.random.exponential(scale=mean_iat)
+        # return random.choice(intervals)
         # self.last_wait_time += 1
         # return self.last_wait_time
 

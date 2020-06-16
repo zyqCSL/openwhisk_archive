@@ -42,6 +42,7 @@ parser.add_argument('--exp-time', dest='exp_time', type=str, default='5m')
 parser.add_argument('--warmup-time', dest='warmup_time', type=str, default='1m')
 parser.add_argument('--profile-users', dest='profile_users', type=int, required=True)
 parser.add_argument('--profile-time', dest='profile_time', type=str, default='20m')
+parser.add_argument('--iat', dest='iat', type=int, required=True)
 args = parser.parse_args()
 
 function = args.function
@@ -52,6 +53,7 @@ exp_time = args.exp_time
 warmup_time = args.warmup_time
 profile_users = args.profile_users
 profile_time = args.profile_time
+iat = args.iat
 
 data_dir = Path.cwd() / 'data'
 distr_data_dir = Path.cwd() / 'data' / 'distr'
@@ -66,7 +68,7 @@ if not os.path.isdir(str(data_dir)):
 if not os.path.isdir(str(distr_data_dir)):
 	os.makedirs(str(distr_data_dir))
 
-script = Path.cwd() / 'scripts' / ('test_action.sh')
+script = Path.cwd() / 'scripts' / ('test_action_iat_' + str(iat) + '.sh')
 assert os.path.isfile(str(script))
 
 tested_users = range(min_users, max_users+1, user_step)
