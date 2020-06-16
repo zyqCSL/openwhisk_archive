@@ -8,6 +8,8 @@ import numpy as np
 import time
 import json
 
+random.seed(time.time())
+
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -53,6 +55,7 @@ lr_review_words = ["fine", "fancy", "food", "good", "so so",
     "zuo.you.heng.tiao"]
 
 mean_iat = 10  # seconds
+intervals = np.random.exponential(scale=mean_iat, size=5000)
 
 def compose_lr_review_text():
     global lr_review_words
@@ -66,8 +69,8 @@ class OpenWhiskUser(HttpUser):
     # wait_time = between(5, 9)
     # return wait time in second
     def wait_time(self):
-        global mean_iat
-        return np.random.exponential(scale=mean_iat)
+        global intervals
+        return random.choice(intervals)
         # self.last_wait_time += 1
         # return self.last_wait_time
 
