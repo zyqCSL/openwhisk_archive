@@ -154,7 +154,7 @@ print('log_init_length = %d' %log_init_length)
 # profile function distr
 p = run_exp(test_time=profile_time, user=profile_users)
 p.wait()
-time.sleep(120)
+time.sleep(30)
 log_length = controller_log_length()
 print('log_length = %d' %log_length)
 
@@ -235,5 +235,7 @@ for u in tested_users:
 			consecutive_low_use += 1
 		else:
 			consecutive_low_use = 0
+		prev_idle = idle
+		prev_total = total
 	print('system cooled down\n')
 
