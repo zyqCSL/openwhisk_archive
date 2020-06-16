@@ -89,6 +89,30 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
   val cgroupCpuPath = "/sys/fs/cgroup/cpuacct/cgroup_harvest_vm/cpuacct.usage"
   var cgroupCpuTime: Long = 0   // in ns
   var cgroupCpuUsage: Double = 0.0
+  var cpu_usage_window_size: Int = 5
+  var cpu_usage_window: Array[Double] = Array.fill(cpu_usage_window_size)(0.0)
+  var cpu_usage_window_ptr: Int = 0
+
+  def get_mean_cpu(): Double = {
+    var samples: Int = 0
+    var sum_cpu: Double = 0
+    var i: Int = 0
+    while(i < cpu_usage_window_size) {
+      if cpu_usage_window(i) > 0 {
+        samples = samples + 1
+        sum_cpu = sum_cpu + cpu_usage_window(i)
+      }
+      i = i + 1
+    }
+    sum_cpu / samples
+  }
+
+  def proceed_cpu_window_ptr() {
+    cpu_usage_window_ptr = cpu_usage_window_ptr + 1
+    if(cpu_usage_window_ptr >= cpu_usage_window_size) {
+      cpu_usage_window_ptr = 0
+    }
+  }
 
   prewarmConfig.foreach { config =>
     logging.info(this, s"pre-warming ${config.count} ${config.exec.kind} ${config.cpuLimit.toString} ${config.memoryLimit.toString}")(
@@ -222,7 +246,7 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
                 s"Rescheduling Run message, too many message in the pool, " +
                   s"freePoolSize: ${freePool.size} containers and ${memoryConsumptionOf(freePool)} MB, ${cpuConsumptionOf(freePool)} cpus, " +
                   s"busyPoolSize: ${busyPool.size} containers and ${memoryConsumptionOf(busyPool)} MB, ${cpuConsumptionOf(busyPool)} cpus " +
-                  s"cgroupCpuUsage ${cgroupCpuUsage}, " +
+                  s"mean_cgroupCpuUsage ${get_mean_cpu()}, " +
                   s"maxContainersMemory ${availMemory.toMB} MB , " +
                   s"maxContainersCpu ${availCpu} , " +
                   s"userNamespace: ${r.msg.user.namespace.name}, action: ${r.action}, " +
@@ -404,7 +428,11 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
 
           cgroupCheckTime = curns
           cgroupCpuTime = cpu_time
-          logging.warn(this, s"cgroupCpuUsage = ${cgroupCpuUsage}")
+          cpu_usage_window(cpu_usage_window_ptr) = cgroupCpuUsage
+          proceed_cpu_window_ptr()
+          logging.info(this, s"cgroupCpuUsage = ${cgroupCpuUsage}")
+          logging.info(this, s"mean_cgroupCpuUsage = ${get_mean_cpu()}")
+
         }
         buffer_cgroup.close
       } else {
@@ -417,7 +445,7 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
     // logging.warn(this, s"cpu consumption ${cpuConsumptionOf(pool) + cpuUtil}, total cpu ${availCpu}, enough rsc ${memoryConsumptionOf(pool) + memory.toMB <= availMemory.toMB && cpuConsumptionOf(pool) + cpuUtil <= availCpu*overSubscribedRate}")
 
     // memoryConsumptionOf(pool) + memory.toMB <= poolConfig.userMemory.toMB
-    memoryConsumptionOf(pool) + memory.toMB <= availMemory.toMB && cgroupCpuUsage + cpuUtil <= availCpu*overSubscribedRate
+    memoryConsumptionOf(pool) + memory.toMB <= availMemory.toMB && get_mean_cpu() + cpuUtil <= availCpu*overSubscribedRate
   }
 }
 

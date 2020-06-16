@@ -21,6 +21,7 @@ import csv
 from pathlib import Path
 sys.path.append(str(Path.cwd() / 'util'))
 from db_activation import *
+from cpu_util import *
 
 # from socket import SOCK_STREAM, socket, AF_INET, SOL_SOCKET, SO_REUSEADDR
 
@@ -222,4 +223,17 @@ for u in tested_users:
 				lat_writer.writerow(t)
 
 	time.sleep(10)
+	consecutive_low_use = 0
+	print('waiting for system to cool down...')
+	prev_idle = 0
+	prev_total = 0
+	while consecutive_low_use < 20:
+		time.sleep(1)
+		total, idle = check_proc_stat()
+		util = compute_cpu_util(prev_idle, prev_total, idle, total)
+		if util <= 0.1:
+			consecutive_low_use += 1
+		else:
+			consecutive_low_use = 0
+	print('system cooled down\n')
 
