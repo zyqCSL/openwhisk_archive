@@ -129,6 +129,9 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
       if(cpuUtil <= 0)
         cpuUtil = r.action.limits.cpu.cores
 
+      // debug
+      logging.warn(this, s"receive Run cpu util ${cpuUtil}, cpu limit ${cpuLimit}")
+
       // Only process request, if there are no other requests waiting for free slots, or if the current request is the
       // next request to process
       // It is guaranteed, that only the first message on the buffer is resent.
