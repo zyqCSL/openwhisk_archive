@@ -257,7 +257,7 @@ class ContainerProxy(
   var rescheduleJob = false // true iff actor receives a job but cannot process it because actor will destroy itself
   var runBuffer = immutable.Queue.empty[Run] //does not retain order, but does manage jobs that would have pushed past action concurrency limit
 
-  // yanqi, keep a record of currentCpuLimit to chech if it changes
+  // yanqi, keep a record of currentCpuLimit to check if it changes
   var currentCpuLimit: Double = 0.0
 
   //keep a separate count to avoid confusion with ContainerState.activeActivationCount that is tracked/modified only in ContainerPool
