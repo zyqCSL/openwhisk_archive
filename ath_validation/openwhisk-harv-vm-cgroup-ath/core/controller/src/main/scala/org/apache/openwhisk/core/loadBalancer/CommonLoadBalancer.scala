@@ -80,7 +80,7 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
   protected val cpuLimitPercentile: Double = 0.99
   protected val functionSampleRate: Double = 1.0
   protected val functionSampleUseExpectation: Boolean = true
-  protected val cpuUtilWindow:Int = 10
+  // protected val cpuUtilWindow:Int = 10
   protected val redundantRatio: Double = 1.5
   protected val provisionRatio: Double = 2.0
   protected val randomGen = Random
@@ -95,7 +95,8 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
       case sample: InvocationSample =>
         // logging.info(this, s"In CommonLoadBalancer dataProcessor") 
         val (estimated_cpu, cpu_limit) = functionCpuUtilDistr.getOrElseUpdate(sample.actionId, 
-                new Distribution(cpuUtilNumCores, cpuUtilUpdatBatch, cpuUtilPercentile, cpuLimitPercentile, cpuUtilWindow))
+                // new Distribution(cpuUtilNumCores, cpuUtilUpdatBatch, cpuUtilPercentile, cpuLimitPercentile, cpuUtilWindow))
+                new Distribution(cpuUtilNumCores, cpuUtilUpdatBatch, cpuUtilPercentile, cpuLimitPercentile))
                 .addSample(sample.cpuUtil, sample.exeTime, functionSampleUseExpectation)
         // logging.info(this, s"dataProcessor distribution set up") 
         if(estimated_cpu > 0)
