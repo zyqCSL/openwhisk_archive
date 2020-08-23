@@ -16,8 +16,9 @@ class Distribution(
         numCores: Int,
         updateBatch: Int,
         cpuUtilPercentile: Double,
-        cpuLimitPercentile: Double,
-        cpuUtilWindow: Int) {
+        cpuLimitPercentile: Double
+        // cpuUtilWindow: Int
+        ) {
     protected val _numCores: Int = numCores
     protected val _step: Double = 0.1
 
@@ -26,13 +27,13 @@ class Distribution(
     protected val _updateBatch = updateBatch
     protected val _cpuUtilPercentile = cpuUtilPercentile
     protected val _cpuLimitPercentile = cpuLimitPercentile
-    protected val _cpuUtilWindow = cpuUtilWindow
+    // protected val _cpuUtilWindow = cpuUtilWindow
 
     protected var samples: Array[Long] = Array.fill(_numBins)(0)
-    protected var window: Array[Double] = Array.fill(_cpuUtilWindow)(0.0)
+    // protected var window: Array[Double] = Array.fill(_cpuUtilWindow)(0.0)
 
-    protected var window_size: Int = 0
-    protected var window_ptr: Int = 0
+    // protected var window_size: Int = 0
+    // protected var window_ptr: Int = 0
 
     protected var numNewSamples: Long = 0
     protected var numSamples: Long = 0
@@ -43,9 +44,9 @@ class Distribution(
     def addSample(sample: Double, exeTime: Long, useExpectation: Boolean): (Double, Double) =  {
         // use exeTime > 0 to filter timeout handler
         if(exeTime > 0) {
-            window(window_ptr) = sample
-            window_ptr  = if(window_ptr  == _cpuUtilWindow - 1) { 0 } else { window_ptr + 1 }
-            window_size = if(window_size == _cpuUtilWindow)     { window_size } else { window_size + 1 }
+            // window(window_ptr) = sample
+            // window_ptr  = if(window_ptr  == _cpuUtilWindow - 1) { 0 } else { window_ptr + 1 }
+            // window_size = if(window_size == _cpuUtilWindow)     { window_size } else { window_size + 1 }
             accum_exe_time = accum_exe_time + exeTime
             accum_cpu_time_product = accum_cpu_time_product + (sample*exeTime).toLong
 
@@ -59,7 +60,7 @@ class Distribution(
         }
 
         var cpu_limit: Double = 0.0
-        var cpu_limit_window: Double = 0.0
+        // var cpu_limit_window: Double = 0.0
 
         var estimated_cpu: Double = accum_cpu_time_product.toDouble / accum_exe_time
 
@@ -101,13 +102,13 @@ class Distribution(
             }
         }
 
-        if(window_size == _cpuUtilWindow)
-            cpu_limit_window = window.sum/_cpuUtilWindow
-        else 
-            cpu_limit_window = window.take(window_size).sum/window_size
+        // if(window_size == _cpuUtilWindow)
+        //     cpu_limit_window = window.sum/_cpuUtilWindow
+        // else 
+        //     cpu_limit_window = window.take(window_size).sum/window_size
 
-        if(cpu_limit_window > cpu_limit)
-            cpu_limit = cpu_limit_window
+        // if(cpu_limit_window > cpu_limit)
+        //     cpu_limit = cpu_limit_window
 
         (math.ceil(estimated_cpu*10).toInt/10.0, cpu_limit)
     }
