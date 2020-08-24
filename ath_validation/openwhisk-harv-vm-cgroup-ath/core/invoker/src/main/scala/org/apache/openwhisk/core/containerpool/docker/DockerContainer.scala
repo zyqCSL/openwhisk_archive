@@ -112,8 +112,8 @@ object DockerContainer {
     val args = Seq(
       // "--cpu-shares",
       // cpuShares.toString,
-      // "--cpus",
-      // cpus.toString,
+      "--cpus",
+      cpus.toString,
       "--cgroup-parent",
       "/cgroup_harvest_vm/",
       "--memory",
