@@ -241,7 +241,7 @@ class OpenWhiskUser(HttpUser):
 
         url = '/api/v1/namespaces/_/actions/linpack'
         body = {}
-        body['N'] = random.randint(5, 20)
+        body['N'] = random.randint(10, 200)
 
         r = self.client.post(url, params=params,
             json=body, auth=auth, verify=False,
