@@ -107,6 +107,7 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
           val provision_limit = math.max(minCpuLimit, math.min(maxCpuLimit, math.ceil(sample.cpuUtil * provisionRatio)))
           // force update when the function is invoked the first time
           functionCpuLimit.update(sample.actionId, provision_limit)
+          logging.info(this, s"function ${sample.actionId.asString} raw_cpu_limit = ${provision_limit} cpu_limit = ${functionCpuLimit.get(sample.actionId)}, cpu_usage = ${estimated_cpu}")
         } else {
           // update limit according to redundantRatio 
           if(cpu_limit > 0)
@@ -116,8 +117,8 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
           //   functionCpuLimit.update(sample.actionId, estimated_limit)
           // // else if(cpu_limit < math.floor(curr_limit/(redundantRatio*redundantRatio)))
           // //   functionCpuLimit.update(sample.actionId, math.ceil(curr_limit/redundantRatio) )
+          logging.info(this, s"function ${sample.actionId.asString} raw_cpu_limit = ${cpu_limit} cpu_limit = ${functionCpuLimit.get(sample.actionId)}, cpu_usage = ${estimated_cpu}") 
         }
-        logging.info(this, s"function ${sample.actionId.asString} raw_cpu_limit = ${cpu_limit} cpu_limit = ${functionCpuLimit.get(sample.actionId)}, cpu_usage = ${estimated_cpu}") 
     }
   }))
 

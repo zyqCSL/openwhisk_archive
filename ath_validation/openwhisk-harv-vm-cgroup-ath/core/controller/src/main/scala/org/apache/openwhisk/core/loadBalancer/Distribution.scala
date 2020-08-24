@@ -76,6 +76,21 @@ class Distribution(
                 // }
                 // estimated_cpu = accum_val * _step/numSamples
                 estimated_cpu = accum_cpu_time_product.toDouble / accum_exe_time
+
+                // always compute cpu limit based on percentile
+                var cpu_limit_unknown: Boolean = true
+                var accum_samples: Long = 0
+                while(i < _numBins && cpu_limit_unknown) {
+                    accum_samples = accum_samples + samples(i)
+                    var cur_percent: Double = accum_samples.toDouble/numSamples
+                    if(cur_percent >= _cpuLimitPercentile && cpu_limit_unknown) {
+                        cpu_limit_unknown = false
+                        cpu_limit = i*_step
+                        if(i == 0)
+                            cpu_limit = _step
+                    }
+                    i = i + 1
+                }
             } else {
                 var cpu_limit_unknown: Boolean = true
                 var est_cpu_unknown: Boolean = true
