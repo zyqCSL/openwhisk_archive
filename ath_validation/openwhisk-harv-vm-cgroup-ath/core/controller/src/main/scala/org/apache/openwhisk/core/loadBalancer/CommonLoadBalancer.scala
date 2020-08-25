@@ -84,7 +84,7 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
   protected val redundantRatio: Double = 1.5
   protected val provisionRatio: Double = 2.0
   protected val randomGen = Random
-  protected val maxCpuLimit: Double = 30.0
+  protected val maxCpuLimit: Double = 40.0
   protected val minCpuLimit: Double = 1.0
 
   case class InvocationSample(actionId: FullyQualifiedEntityName, cpuUtil: Double, 

@@ -584,7 +584,8 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
       for(i <- 0 to invokers.size - 1) {
         val this_invoker = invokers(i)
         val this_invoker_id = this_invoker.id.toInt
-        if(this_invoker.status.isUsable && this_invoker.cpu.toDouble >= cpuLimit) {
+        // if(this_invoker.status.isUsable && this_invoker.cpu.toDouble >= cpuLimit) {
+        if(this_invoker.status.isUsable) {
           val (leftcpu, leftmem, score) = usedResources(this_invoker_id).reportLeftResources(this_invoker.cpu.toDouble/clusterSize, this_invoker.memory/clusterSize, reqCpu, reqMemory, maxConcurrent, fqn)
                 
           logging.warn(this, s"check invoker${this_invoker_id} leftcpu ${leftcpu} leftmem ${leftmem} score ${score}")
