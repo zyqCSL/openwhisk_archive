@@ -71,7 +71,7 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
   var prewarmedPool = immutable.Map.empty[ActorRef, ContainerData]
 
   // map fo function cpu utilization, used for cpu admission control
-  var overSubscribedRate: Double = 1.0
+  var overSubscribedRate: Double = 2.0
 
   var availMemory: ByteSize = poolConfig.userMemory
   var availCpu: Double = 10.0
@@ -90,7 +90,7 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
   var cgroupCpuTime: Long = 0   // in ns
   var cgroupCpuUsage: Double = 0.0
   var cpu_usage_window_size: Int = 5
-  var cpu_usage_window: Array[Double] = Array.fill(cpu_usage_window_size)(0.0)
+  var cpu_usage_window: Array[Double] = Array.fill(cpu_usage_window_size)(-1.0)
   var cpu_usage_window_ptr: Int = 0
 
   def get_mean_cpu(): Double = {
@@ -98,7 +98,7 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
     var sum_cpu: Double = 0
     var i: Int = 0
     while(i < cpu_usage_window_size) {
-      if(cpu_usage_window(i) > 0) {
+      if(cpu_usage_window(i) >= 0) {
         samples = samples + 1
         sum_cpu = sum_cpu + cpu_usage_window(i)
       }
