@@ -173,6 +173,8 @@ for c in tested_cpus:
 	r = update_action_limits(function, cpu=c)
 	print(r.text)
 	# sys.exit()
+
+	action_records[c] = []
 	
 	# check log
 	log_init_length = invoker_log_length()
