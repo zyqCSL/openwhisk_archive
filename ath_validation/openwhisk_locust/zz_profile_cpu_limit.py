@@ -180,6 +180,8 @@ for c in tested_cpus:
 	pl = run_exp(test_time=warmup_time, user=users)
 	pl.wait()
 	consecutive_low_use = 0
+	prev_idle = 0
+	prev_total = 0
 	while consecutive_low_use < 5:
 		time.sleep(1)
 		total, idle = check_proc_stat()
