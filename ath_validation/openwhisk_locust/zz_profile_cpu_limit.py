@@ -41,7 +41,7 @@ parser.add_argument('--min-cpus', dest='min_cpus', type=float, required=True)
 parser.add_argument('--max-cpus', dest='max_cpus', type=float, required=True)
 parser.add_argument('--cpus-step', dest='cpus_step', type=float, required=True)
 parser.add_argument('--exp-time', dest='exp_time', type=str, default='3m')
-parser.add_argument('--warmup-time', dest='warmup_time', type=str, default='1m')
+parser.add_argument('--warmup-time', dest='warmup_time', type=str, default='30s')
 parser.add_argument('--iat', dest='iat', type=int, required=True)
 args = parser.parse_args()
 
@@ -175,6 +175,22 @@ for c in tested_cpus:
 	# sys.exit()
 
 	action_records[c] = []
+
+	# warm up
+	pl = run_exp(test_time=warmup_time, user=users)
+	pl.wait()
+	consecutive_low_use = 0
+	while consecutive_low_use < 5:
+		time.sleep(1)
+		total, idle = check_proc_stat()
+		util = compute_cpu_util(prev_idle, prev_total, idle, total)
+		if util <= 0.1:
+			consecutive_low_use += 1
+		else:
+			consecutive_low_use = 0
+		prev_idle = idle
+		prev_total = total
+	print('warm up complete\n')
 	
 	# check log
 	log_init_length = invoker_log_length()
