@@ -77,6 +77,8 @@ tested_cpus = np.arange(min_cpus, max_cpus + cpus_step, cpus_step)
 print('tested_cpus')
 print(tested_cpus)
 
+def restart_openwhisk():
+
 def change_time(time_str):
 	if 'm' in time_str:
 		return int(time_str.replace('m', '')) * 60
