@@ -172,7 +172,7 @@ for c in tested_cpus:
 	# update action cpu limit
 	r = update_action_limits(function, cpu=c)
 	print(r.text)
-	sys.exit()
+	# sys.exit()
 	
 	# check log
 	log_init_length = invoker_log_length()
@@ -206,7 +206,7 @@ for c in tested_cpus:
 	if not os.path.isdir(str(data_dir / function)):
 		os.makedirs(str(data_dir / function))
 
-	distr_file =  data_dir / function / ('cpu_') + format()
+	distr_file =  data_dir / function / ('cpu_' + format(c, '.1f') + '.txt' )
 	grep_function_distr(tail_len=log_length-log_init_length, distr_file=distr_file, cpu=c)
 
 
