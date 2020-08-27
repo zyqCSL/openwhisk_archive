@@ -41,7 +41,7 @@ parser.add_argument('--min-cpus', dest='min_cpus', type=float, required=True)
 parser.add_argument('--max-cpus', dest='max_cpus', type=float, required=True)
 parser.add_argument('--cpus-step', dest='cpus_step', type=float, required=True)
 parser.add_argument('--exp-time', dest='exp_time', type=str, default='3m')
-parser.add_argument('--warmup-time', dest='warmup_time', type=str, default='30s')
+parser.add_argument('--warmup-time', dest='warmup_time', type=str, default='15s')
 parser.add_argument('--iat', dest='iat', type=int, required=True)
 args = parser.parse_args()
 
