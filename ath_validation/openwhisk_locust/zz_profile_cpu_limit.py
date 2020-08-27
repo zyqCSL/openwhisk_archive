@@ -1,6 +1,5 @@
 # test
-# python3 ./profile_function.py --min-users 1 --max-users 2 --user-step 1 --exp-time 60s --profile-users 1 --profile-time 60s --warmup-time 30s --function mobilenet 
-# python3 ./profile_function.py --min-users 5 --max-users 30 --user-step 5 --profile-users 10 --function mobilenet
+# python3 ./zz_profile_cpu_limit.py --min-cpus 0.5 --max-cpus 1.0 --cpus-step 0.5 --users 1 --exp-time 60s --function mobilenet --iat 1
 
 # assume docker version >= 1.13
 import sys
@@ -172,8 +171,8 @@ time.sleep(10)
 for c in tested_cpus:
 	# update action cpu limit
 	r = update_action_limits(function, cpu=c)
-	print(r)
-	os.exit()
+	print(r.text)
+	sys.exit()
 	
 	# check log
 	log_init_length = invoker_log_length()
