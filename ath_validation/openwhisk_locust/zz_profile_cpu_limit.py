@@ -129,7 +129,7 @@ def read_locust_stats(function, cpu):
 	locust_stats_file = locust_stats_dir / (function + '_stats.csv')
 	with open(str(locust_stats_file), 'r') as f:
 		lines = f.readlines()
-		fields = lines[0]
+		fields = lines[0].split(',')
 		rps_idx = -1
 		requests_idx = -1
 		fps_idx = -1
