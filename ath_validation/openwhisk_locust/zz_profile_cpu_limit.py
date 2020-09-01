@@ -41,7 +41,7 @@ parser.add_argument('--min-cpus', dest='min_cpus', type=float, required=True)
 parser.add_argument('--max-cpus', dest='max_cpus', type=float, required=True)
 parser.add_argument('--cpus-step', dest='cpus_step', type=float, required=True)
 parser.add_argument('--exp-time', dest='exp_time', type=str, default='90s')
-parser.add_argument('--warmup-time', dest='warmup_time', type=str, default='15s')
+parser.add_argument('--warmup-time', dest='warmup_time', type=str, default='10s')
 parser.add_argument('--iat', dest='iat', type=int, required=True)
 args = parser.parse_args()
 
@@ -62,7 +62,8 @@ USER_PASS = auth_str.strip().split(':')
 NAMESPACE = '_'
 APIHOST = 'https://172.17.0.1'
 
-action_records = {}	# indexed by cpu -limit
+action_records = {}	# indexed by cpu limit
+locust_records = {} # indexed by cpu limit
 
 # openwhisk
 openwhisk_invoker_log = Path('/tmp/wsklogs/invoker0/invoker0_logs.log')
@@ -110,7 +111,50 @@ def run_exp(test_time, user, quiet=False):
 			stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 	return p
 
-def clear_locust_state():
+def copy_locust_stats(dir_name):
+	global data_dir
+
+	full_path = data_dir / dir_name
+	if os.path.isdir(str(full_path)):
+		shutil.rmtree(str(full_path))
+	shutil.copytree(str(locust_stats_dir), str(full_path))
+
+# "Type","Name","Request Count","Failure Count","Median Response Time","Average Response Time","Min Response Time","Max Response Time","Average Content Size","Requests/s","Failures/s","50%","66%","75%","80%","90%","95%","98%","99%","99.9%","99.99%","99.999%","100%"
+
+def read_locust_stats(function, cpu):
+	global locust_records
+	if cpu not in locust_records:
+		locust_records[cpu] = {}
+
+	locust_stats_file = locust_stats_dir / (function + '_stats.csv')
+	with open(str(locust_stats_file), 'r') as f:
+		lines = f.readlines()
+		fields = lines[0]
+		rps_idx = -1
+		requests_idx = -1
+		fps_idx = -1
+		failures_idx = -1
+		
+		for (i, field) in fields:
+			if 'Request Count' in field:
+				requests_idx = i
+			elif 'Failure Count' in field:
+				failures_idx = i
+			elif 'Requests/s' in field:
+				rps_idx = i
+			elif 'Failures/s' in field:
+				fps_idx = i
+
+		for line in lines[-1:]:
+			if function not in line:
+				continue
+			data = line.split(',')
+			locust_records[cpu]['rps'] = int(data[rps_idx])
+			locust_records[cpu]['requests'] = int(data[requests_idx])
+			locust_records[cpu]['fps'] = int(data[fps_idx])
+			locust_records[cpu]['failures'] = int(data[failures_idx])
+
+def clear_locust_stats():
 	for fn in os.listdir(str(locust_stats_dir)):
 		full_path = locust_stats_dir / fn
 		os.remove(str(full_path))
@@ -165,7 +209,7 @@ def grep_function_distr(tail_len, distr_file, cpu):
 		for l in chosen:
 			f.write(l + '\n')
 
-clear_locust_state()
+clear_locust_stats()
 time.sleep(10)
 # stress test
 for c in tested_cpus:
@@ -218,8 +262,6 @@ for c in tested_cpus:
 		prev_total = total
 	print('system cooled down\n')
 
-	clear_locust_state()
-
 	log_length = invoker_log_length()
 	print('log_length = %d' %log_length)
 
@@ -229,10 +271,14 @@ for c in tested_cpus:
 	distr_file =  data_dir / function / ('cpu_' + format(c, '.1f') + '.txt' )
 	grep_function_distr(tail_len=log_length-log_init_length, distr_file=distr_file, cpu=c)
 
+	read_locust_stats(function=function, cpu=c)
+
+	copy_locust_stats('locust_cpu_' + format(c, '.1f'))
+	clear_locust_stats()
 
 summary_csv = data_dir / function / 'summary.csv'
 with open(str(summary_csv), 'w+') as f:
-	lat_writer = csv.writer(f, delimiter='\t')
+	lat_writer = csv.writer(f, delimiter=',')
 	lat_writer.writerow(['cpu_limit', 
 						 # cpu time
 						 'mean_cpu_time', 
@@ -248,7 +294,13 @@ with open(str(summary_csv), 'w+') as f:
 						 'mean_time', 
 						 'std_time', 
 						 'max_time',
-						 'min_time'])
+						 'min_time',
+						 #locust stats
+						 'requests',
+						 'failures',
+						 'rps',
+						 'fps'
+						 ])
 
 	for cpu_limit in action_records:
 		cpu_time_arr = np.array([s*t for (s, t) in action_records[cpu_limit]])
@@ -266,4 +318,9 @@ with open(str(summary_csv), 'w+') as f:
 							exe_time_arr.mean(),
 							exe_time_arr.std(),
 							exe_time_arr.max(),
-							exe_time_arr.min()])
+							exe_time_arr.min(), 
+							locust_records[cpu_limit]['requests'],
+							locust_records[cpu_limit]['failures'],
+							locust_records[cpu_limit]['rps'],
+							locust_records[cpu_limit]['fps']
+							])
