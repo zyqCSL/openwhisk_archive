@@ -293,7 +293,7 @@ for c in tested_cpus:
 
 	read_locust_stats(function=function, cpu=c)
 
-	copy_locust_stats('locust_cpu_' + format(c, '.1f'))
+	copy_locust_stats(function + 'locust_cpu_' + format(c, '.1f'))
 	clear_locust_stats()
 
 summary_csv = data_dir / function / 'summary.csv'
