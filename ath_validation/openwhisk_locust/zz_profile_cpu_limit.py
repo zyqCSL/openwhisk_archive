@@ -155,7 +155,7 @@ def read_locust_stats(function, cpu):
 			print(data)
 			print(rps_idx, requests_idx, fps_idx, failures_idx)
 			if rps_idx >= 0:
-				locust_records[cpu]['rps'] = int(data[rps_idx])
+				locust_records[cpu]['rps'] = float(data[rps_idx])
 			else:
 				locust_records[cpu]['rps'] = -1
 
@@ -165,7 +165,7 @@ def read_locust_stats(function, cpu):
 				locust_records[cpu]['requests'] = -1
 
 			if fps_idx >= 0:
-				locust_records[cpu]['fps'] = int(data[fps_idx])
+				locust_records[cpu]['fps'] = float(data[fps_idx])
 			else:
 				locust_records[cpu]['fps'] = -1
 
