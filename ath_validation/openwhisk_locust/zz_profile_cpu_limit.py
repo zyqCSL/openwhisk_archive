@@ -136,7 +136,7 @@ def read_locust_stats(function, cpu):
 		failures_idx = -1
 		
 		for (i, field) in enumerate(fields):
-			print(field)
+			# print(field)
 			if 'Request Count' in field:
 				requests_idx = i
 			elif 'Failure Count' in field:
@@ -147,13 +147,13 @@ def read_locust_stats(function, cpu):
 				fps_idx = i
 
 		for line in lines[0:]:
-			print(line)
+			# print(line)
 			if function not in line:
-				print('line skipped, ', function)
+				# print('line skipped, ', function)
 				continue
 			data = line.split(',')
-			print(data)
-			print(rps_idx, requests_idx, fps_idx, failures_idx)
+			# print(data)
+			# print(rps_idx, requests_idx, fps_idx, failures_idx)
 			if rps_idx >= 0:
 				locust_records[cpu]['rps'] = float(data[rps_idx])
 			else:
@@ -322,8 +322,8 @@ with open(str(summary_csv), 'w+') as f:
 						 'fps'
 						 ])
 
-	print('locust_records')
-	print(locust_records)
+	# print('locust_records')
+	# print(locust_records)
 	for cpu_limit in action_records:
 		cpu_time_arr = np.array([s*t for (s, t) in action_records[cpu_limit]])
 		cpu_arr = np.array([s for (s, _) in action_records[cpu_limit]])
