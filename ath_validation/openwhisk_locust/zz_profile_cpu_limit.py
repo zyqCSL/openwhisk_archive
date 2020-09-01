@@ -146,7 +146,7 @@ def read_locust_stats(function, cpu):
 			elif 'Failures/s' in field:
 				fps_idx = i
 
-		for line in lines[-1:]:
+		for line in lines[0:]:
 			print(line)
 			if function not in line:
 				print('line skipped, ', function)
