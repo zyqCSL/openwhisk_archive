@@ -149,10 +149,16 @@ def read_locust_stats(function, cpu):
 			if function not in line:
 				continue
 			data = line.split(',')
-			locust_records[cpu]['rps'] = int(data[rps_idx])
-			locust_records[cpu]['requests'] = int(data[requests_idx])
-			locust_records[cpu]['fps'] = int(data[fps_idx])
-			locust_records[cpu]['failures'] = int(data[failures_idx])
+			print(data)
+			print(rps_idx, requests_idx, fps_idx, failures_idx)
+			if rps_idx >= 0:
+				locust_records[cpu]['rps'] = int(data[rps_idx])
+			if requests_idx >= 0:
+				locust_records[cpu]['requests'] = int(data[requests_idx])
+			if fps_idx >= 0:
+				locust_records[cpu]['fps'] = int(data[fps_idx])
+			if failures_idx >= 0:
+				locust_records[cpu]['failures'] = int(data[failures_idx])
 
 def clear_locust_stats():
 	for fn in os.listdir(str(locust_stats_dir)):
@@ -302,6 +308,8 @@ with open(str(summary_csv), 'w+') as f:
 						 'fps'
 						 ])
 
+	print('locust_records')
+	print(locust_records)
 	for cpu_limit in action_records:
 		cpu_time_arr = np.array([s*t for (s, t) in action_records[cpu_limit]])
 		cpu_arr = np.array([s for (s, _) in action_records[cpu_limit]])
