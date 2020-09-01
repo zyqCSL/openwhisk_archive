@@ -153,12 +153,23 @@ def read_locust_stats(function, cpu):
 			print(rps_idx, requests_idx, fps_idx, failures_idx)
 			if rps_idx >= 0:
 				locust_records[cpu]['rps'] = int(data[rps_idx])
+			else:
+				locust_records[cpu]['rps'] = -1
+
 			if requests_idx >= 0:
 				locust_records[cpu]['requests'] = int(data[requests_idx])
+			else:
+				locust_records[cpu]['requests'] = -1
+
 			if fps_idx >= 0:
 				locust_records[cpu]['fps'] = int(data[fps_idx])
+			else:
+				locust_records[cpu]['fps'] = -1
+
 			if failures_idx >= 0:
 				locust_records[cpu]['failures'] = int(data[failures_idx])
+			else:
+				locust_records[cpu]['failures'] = -1
 
 def clear_locust_stats():
 	for fn in os.listdir(str(locust_stats_dir)):
