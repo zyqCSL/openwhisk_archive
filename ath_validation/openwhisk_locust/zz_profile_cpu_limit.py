@@ -136,6 +136,7 @@ def read_locust_stats(function, cpu):
 		failures_idx = -1
 		
 		for (i, field) in enumerate(fields):
+			print(field)
 			if 'Request Count' in field:
 				requests_idx = i
 			elif 'Failure Count' in field:
@@ -146,7 +147,9 @@ def read_locust_stats(function, cpu):
 				fps_idx = i
 
 		for line in lines[-1:]:
+			print(line)
 			if function not in line:
+				print('line skipped, ', function)
 				continue
 			data = line.split(',')
 			print(data)
