@@ -86,7 +86,7 @@ class OpenWhiskUser(HttpUser):
 
         url = '/api/v1/namespaces/_/actions/image_process'
         # img = random.choice(image_names)
-        img = image_names[0]
+        img = 'b64_building.jpg'
         body = {}
         body['image'] = image_data[img]
 
@@ -112,7 +112,7 @@ class OpenWhiskUser(HttpUser):
 
         url = '/api/v1/namespaces/_/actions/mobilenet'
         # img = random.choice(image_names)
-        img = image_names[0]
+        img = 'b64_building.jpg'
         body = {}
         body['image'] = image_data[img]
         body['format'] = img.split('.')[-1]
@@ -140,7 +140,7 @@ class OpenWhiskUser(HttpUser):
         url = '/api/v1/namespaces/_/actions/video_process'
 
         # video = random.choice(video_names)
-        video = video_names[0]
+        video = 'b64_lion-sample.avi'
         body = {}
         body['video'] = video_data[video]
         body['video_name'] = video

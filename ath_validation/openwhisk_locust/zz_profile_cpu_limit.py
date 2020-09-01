@@ -135,7 +135,7 @@ def read_locust_stats(function, cpu):
 		fps_idx = -1
 		failures_idx = -1
 		
-		for (i, field) in fields:
+		for (i, field) in enumerate(fields):
 			if 'Request Count' in field:
 				requests_idx = i
 			elif 'Failure Count' in field:
