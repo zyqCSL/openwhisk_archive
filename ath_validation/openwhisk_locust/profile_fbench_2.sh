@@ -1,2 +1,1 @@
-python3 ./profile_function.py --min-users 2 --max-users 0 --user-step 2 --profile-users 4 --function mobilenet --iat 1
-python3 ./profile_function.py --min-users 2 --max-users 10 --user-step 2 --profile-users 4 --function chameleon --iat 1
+python3 ./profile_function.py --min-users 1 --max-users 6 --user-step 1 --profile-users 2 --function lr_review --iat 1
