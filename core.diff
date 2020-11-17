@@ -1,0 +1,452 @@
+diff -r openwhisk-harv-vm-cgroup-azure-distributed/core/controller/src/main/scala/org/apache/openwhisk/core/loadBalancer/CommonLoadBalancer.scala ath_validation/openwhisk-harv-vm-cgroup-ath/core/controller/src/main/scala/org/apache/openwhisk/core/loadBalancer/CommonLoadBalancer.scala
+71c71
+<   /* distribution of cpu usage of functions, yanqimport scala.mathi*/
+---
+>   /* distribution of cpu usage of functions, yanqi*/
+78c78
+<   protected val cpuUtilUpdatBatch:Int = 100
+---
+>   protected val cpuUtilUpdatBatch:Int = 20
+82,84c82,85
+<   protected val functionSampleUseExpectation: Boolean = false
+<   protected val cpuUtilWindow:Int = 50
+<   protected val redundantRatio: Double = 1.001
+---
+>   protected val functionSampleUseExpectation: Boolean = true
+>   // protected val cpuUtilWindow:Int = 10
+>   protected val redundantRatio: Double = 1.5
+>   protected val provisionRatio: Double = 2.0
+85a87,88
+>   protected val maxCpuLimit: Double = 40.0
+>   protected val minCpuLimit: Double = 1.0
+87c90,91
+<   case class InvocationSample(actionId: FullyQualifiedEntityName, cpuUtil: Double, updateCpuLimit: Boolean)
+---
+>   case class InvocationSample(actionId: FullyQualifiedEntityName, cpuUtil: Double, 
+>     exeTime: Long, totalTime:Long, updateCpuLimit: Boolean)
+94,95c98,100
+<                 new Distribution(cpuUtilNumCores, cpuUtilUpdatBatch, cpuUtilPercentile, cpuLimitPercentile, cpuUtilWindow))
+<                 .addSample(sample.cpuUtil, functionSampleUseExpectation)
+---
+>                 // new Distribution(cpuUtilNumCores, cpuUtilUpdatBatch, cpuUtilPercentile, cpuLimitPercentile, cpuUtilWindow))
+>                 new Distribution(cpuUtilNumCores, cpuUtilUpdatBatch, cpuUtilPercentile, cpuLimitPercentile))
+>                 .addSample(sample.cpuUtil, sample.exeTime, functionSampleUseExpectation)
+100,108c105,120
+<         val estimated_limit = math.ceil(cpu_limit * redundantRatio)
+<         if(sample.updateCpuLimit)
+<           functionCpuLimit.update(sample.actionId, estimated_limit)
+<         else {
+<            val curr_limit = functionCpuLimit.getOrElse(sample.actionId, 0.0)
+<            if(curr_limit < estimated_limit)
+<             functionCpuLimit.update(sample.actionId, math.min(estimated_limit, 4.0))
+<            else if(cpu_limit < math.floor(curr_limit/(redundantRatio*redundantRatio)))
+<             functionCpuLimit.update(sample.actionId, math.min(math.ceil(curr_limit/redundantRatio), 4.0) )
+---
+>         val estimated_limit = math.max(minCpuLimit, math.min(maxCpuLimit, math.ceil(cpu_limit * redundantRatio)))
+>         if(sample.updateCpuLimit) {
+>           val provision_limit = math.max(minCpuLimit, math.min(maxCpuLimit, math.ceil(sample.cpuUtil * provisionRatio)))
+>           // force update when the function is invoked the first time
+>           functionCpuLimit.update(sample.actionId, provision_limit)
+>           logging.info(this, s"function ${sample.actionId.asString} raw_cpu_limit = ${provision_limit} cpu_limit = ${functionCpuLimit.get(sample.actionId)}, cpu_usage = ${estimated_cpu}")
+>         } else {
+>           // update limit according to redundantRatio 
+>           if(cpu_limit > 0)
+>             functionCpuLimit.update(sample.actionId, estimated_limit)
+>           // val curr_limit = functionCpuLimit.getOrElse(sample.actionId, 0.0)
+>           // if(curr_limit < estimated_limit)
+>           //   functionCpuLimit.update(sample.actionId, estimated_limit)
+>           // // else if(cpu_limit < math.floor(curr_limit/(redundantRatio*redundantRatio)))
+>           // //   functionCpuLimit.update(sample.actionId, math.ceil(curr_limit/redundantRatio) )
+>           logging.info(this, s"function ${sample.actionId.asString} raw_cpu_limit = ${cpu_limit} cpu_limit = ${functionCpuLimit.get(sample.actionId)}, cpu_usage = ${estimated_cpu}") 
+110d121
+<         logging.info(this, s"function ${sample.actionId.asString} raw_cpu_limit = ${cpu_limit} cpu_limit = ${functionCpuLimit.get(sample.actionId)}, cpu_usage = ${estimated_cpu}") 
+200c211,212
+<           processCompletion(msg.activationId, msg.transid, forced = true, isSystemError = false, invoker = instance, cpuUtil = 0.0) // yanqi, default cpu util being 0.0
+---
+>           processCompletion(msg.activationId, msg.transid, forced = true, isSystemError = false, invoker = instance, 
+>             cpuUtil = cpuUtil, exeTime = 0, totalTime = 0) // yanqi, keep cpuUtil for timeout for invoker stats keeping
+268c280,282
+<           m.cpuUtil)  // yanqi, add cpu util
+---
+>           m.cpuUtil,
+>           m.exeTime,
+>           m.totalTime)  // yanqi, add cpu util & exe Time & totalTime
+311c325
+<   // yanqi, add cpu util
+---
+>   // yanqi, add cpu util & execution time & total time (including cold start)
+317c331,333
+<                                                 cpuUtil: Double): Unit = {
+---
+>                                                 cpuUtil: Double,
+>                                                 exeTime: Long,
+>                                                 totalTime: Long): Unit = {
+343,344c359,360
+<           dataProcessor ! InvocationSample(entry.fullyQualifiedEntityName, cpuUtil, entry.updateCpuLimit)
+<         logging.info(this, s"function ${entry.fullyQualifiedEntityName.asString}, activation id ${aid}, cpu usage = ${cpuUtil}")(tid)
+---
+>           dataProcessor ! InvocationSample(entry.fullyQualifiedEntityName, cpuUtil, exeTime, totalTime, entry.updateCpuLimit)
+>         logging.info(this, s"function ${entry.fullyQualifiedEntityName.asString}, activation id ${aid}, cpu usage=${cpuUtil}, exe time=${exeTime}, total time=${totalTime}")(tid)
+diff -r openwhisk-harv-vm-cgroup-azure-distributed/core/controller/src/main/scala/org/apache/openwhisk/core/loadBalancer/Distribution.scala ath_validation/openwhisk-harv-vm-cgroup-ath/core/controller/src/main/scala/org/apache/openwhisk/core/loadBalancer/Distribution.scala
+19,20c19,21
+<         cpuLimitPercentile: Double,
+<         cpuUtilWindow: Int) {
+---
+>         cpuLimitPercentile: Double
+>         // cpuUtilWindow: Int
+>         ) {
+29c30
+<     protected val _cpuUtilWindow = cpuUtilWindow
+---
+>     // protected val _cpuUtilWindow = cpuUtilWindow
+32c33
+<     protected var window: Array[Double] = Array.fill(_cpuUtilWindow)(0.0)
+---
+>     // protected var window: Array[Double] = Array.fill(_cpuUtilWindow)(0.0)
+34,35c35,36
+<     protected var window_size: Int = 0
+<     protected var window_ptr: Int = 0
+---
+>     // protected var window_size: Int = 0
+>     // protected var window_ptr: Int = 0
+40,43c41,42
+<     def addSample(sample: Double, useExpectation: Boolean): (Double, Double) =  {
+<         window(window_ptr) = sample
+<         window_ptr  = if(window_ptr  == _cpuUtilWindow - 1) { 0 } else { window_ptr + 1 }
+<         window_size = if(window_size == _cpuUtilWindow)     { window_size } else { window_size + 1 }
+---
+>     protected var accum_cpu_time_product:Long = 0
+>     protected var accum_exe_time:Long = 0
+45,46c44,60
+<         var cpu_limit: Double = 0.0
+<         var cpu_limit_window: Double = 0.0
+---
+>     def addSample(sample: Double, exeTime: Long, useExpectation: Boolean): (Double, Double) =  {
+>         // use exeTime > 0 to filter timeout handler
+>         if(exeTime > 0) {
+>             // window(window_ptr) = sample
+>             // window_ptr  = if(window_ptr  == _cpuUtilWindow - 1) { 0 } else { window_ptr + 1 }
+>             // window_size = if(window_size == _cpuUtilWindow)     { window_size } else { window_size + 1 }
+>             accum_exe_time = accum_exe_time + exeTime
+>             accum_cpu_time_product = accum_cpu_time_product + (sample*exeTime).toLong
+> 
+>             // update distribution
+>             numSamples = numSamples + 1
+>             numNewSamples = numNewSamples + 1
+>             var slot: Int = (math.ceil(sample/_step)).toInt
+>             if(slot >= _numBins)
+>                 slot = _numBins - 1
+>             samples(slot) = samples(slot) + 1
+>         }
+48c62,63
+<         var estimated_cpu: Double = 0.0
+---
+>         var cpu_limit: Double = 0.0
+>         // var cpu_limit_window: Double = 0.0
+50,56c65
+<         numSamples = numSamples + 1
+<         numNewSamples = numNewSamples + 1
+<         // update distribution
+<         var slot: Int = (math.ceil(sample/_step)).toInt
+<         if(slot >= _numBins)
+<             slot = _numBins - 1
+<         samples(slot) = samples(slot) + 1
+---
+>         var estimated_cpu: Double = accum_cpu_time_product.toDouble / accum_exe_time
+63,65c72,91
+<                 var accum_val: Long = 0
+<                 while(i < _numBins) {
+<                     accum_val = accum_val + samples(i)*(i + 1)
+---
+>                 // var accum_val: Long = 0
+>                 // while(i < _numBins) {
+>                 //     accum_val = accum_val + samples(i)*(i + 1)
+>                 //     i = i + 1
+>                 // }
+>                 // estimated_cpu = accum_val * _step/numSamples
+>                 estimated_cpu = accum_cpu_time_product.toDouble / accum_exe_time
+> 
+>                 // always compute cpu limit based on percentile
+>                 var cpu_limit_unknown: Boolean = true
+>                 var accum_samples: Long = 0
+>                 while(i < _numBins && cpu_limit_unknown) {
+>                     accum_samples = accum_samples + samples(i)
+>                     var cur_percent: Double = accum_samples.toDouble/numSamples
+>                     if(cur_percent >= _cpuLimitPercentile && cpu_limit_unknown) {
+>                         cpu_limit_unknown = false
+>                         cpu_limit = i*_step
+>                         if(i == 0)
+>                             cpu_limit = _step
+>                     }
+68d93
+<                 estimated_cpu = accum_val * _step/numSamples
+95,98c120,123
+<         if(window_size == _cpuUtilWindow)
+<             cpu_limit_window = window.sum/_cpuUtilWindow
+<         else 
+<             cpu_limit_window = window.take(window_size).sum/window_size
+---
+>         // if(window_size == _cpuUtilWindow)
+>         //     cpu_limit_window = window.sum/_cpuUtilWindow
+>         // else 
+>         //     cpu_limit_window = window.take(window_size).sum/window_size
+100,101c125,126
+<         if(cpu_limit_window > cpu_limit)
+<             cpu_limit = cpu_limit_window
+---
+>         // if(cpu_limit_window > cpu_limit)
+>         //     cpu_limit = cpu_limit_window
+diff -r openwhisk-harv-vm-cgroup-azure-distributed/core/controller/src/main/scala/org/apache/openwhisk/core/loadBalancer/HarvestVMContainerPoolBalancer.scala ath_validation/openwhisk-harv-vm-cgroup-ath/core/controller/src/main/scala/org/apache/openwhisk/core/loadBalancer/HarvestVMContainerPoolBalancer.scala
+287c287,288
+<         cpuUtil = cpuLimit
+---
+>         cpuUtil = 1.0  // assume each activation uses 1 cpu without profiling info
+>       msg.cpuUtil = cpuUtil
+586c587,588
+<         if(this_invoker.status.isUsable && this_invoker.cpu.toDouble >= cpuLimit) {
+---
+>         // if(this_invoker.status.isUsable && this_invoker.cpu.toDouble >= cpuLimit) {
+>         if(this_invoker.status.isUsable) {
+diff -r openwhisk-harv-vm-cgroup-azure-distributed/core/invoker/src/main/resources/application.conf ath_validation/openwhisk-harv-vm-cgroup-ath/core/invoker/src/main/resources/application.conf
+62c62
+<     user-memory: 1024 m
+---
+>     user-memory: 10240 m
+diff -r openwhisk-harv-vm-cgroup-azure-distributed/core/invoker/src/main/scala/org/apache/openwhisk/core/containerpool/ContainerPool.scala ath_validation/openwhisk-harv-vm-cgroup-ath/core/invoker/src/main/scala/org/apache/openwhisk/core/containerpool/ContainerPool.scala
+74c74
+<   var overSubscribedRate: Double = 1.5
+---
+>   var overSubscribedRate: Double = 2.0
+77c77
+<   var availCpu: Double = 1.0
+---
+>   var availCpu: Double = 10.0
+86c86,87
+<   var prevCheckTime: Long = 0 
+---
+>   var prevCheckTime: Long = 0 // in ms
+>   var cgroupCheckTime: Long = 0 // in ns
+87a89,115
+>   val cgroupCpuPath = "/sys/fs/cgroup/cpuacct/cgroup_harvest_vm/cpuacct.usage"
+>   var cgroupCpuTime: Long = 0   // in ns
+>   var cgroupCpuUsage: Double = 0.0
+>   var cpu_usage_window_size: Int = 5
+>   var cpu_usage_window: Array[Double] = Array.fill(cpu_usage_window_size)(-1.0)
+>   var cpu_usage_window_ptr: Int = 0
+> 
+>   def get_mean_cpu(): Double = {
+>     var samples: Int = 0
+>     var sum_cpu: Double = 0
+>     var i: Int = 0
+>     while(i < cpu_usage_window_size) {
+>       if(cpu_usage_window(i) >= 0) {
+>         samples = samples + 1
+>         sum_cpu = sum_cpu + cpu_usage_window(i)
+>       }
+>       i = i + 1
+>     }
+>     sum_cpu / samples
+>   }
+> 
+>   def proceed_cpu_window_ptr() {
+>     cpu_usage_window_ptr = cpu_usage_window_ptr + 1
+>     if(cpu_usage_window_ptr >= cpu_usage_window_size) {
+>       cpu_usage_window_ptr = 0
+>     }
+>   }
+127a156,158
+>       // // debug
+>       // logging.warn(this, s"receive Run cpu util ${cpuUtil}, cpu limit ${cpuLimit}")
+> 
+171,172c202,203
+<             // debug
+<             logging.warn(this, s"schedule container cpu util ${data.cpuUtil}, cpu limit ${data.cpuLimit}")
+---
+>             // // debug
+>             // logging.warn(this, s"schedule container cpu util ${data.cpuUtil}, cpu limit ${data.cpuLimit}")
+201a233
+> 
+210a243
+> 
+216c249
+<                   // s"maxContainersMemory ${poolConfig.userMemory.toMB} MB, " +
+---
+>                   s"mean_cgroupCpuUsage ${get_mean_cpu()}, " +
+357a391
+>       prevCheckTime = curms
+361d394
+<       prevCheckTime = curms
+363,364c396,397
+<         val buffer = Source.fromFile(resourcePath)
+<         val lines = buffer.getLines.toArray
+---
+>         val buffer_kvp = Source.fromFile(resourcePath)
+>         val lines_kvp = buffer_kvp.getLines.toArray
+366,368c399,401
+<         if(lines.size == 2) {
+<           cpu = lines(0).toDouble
+<           memory = lines(1).toInt
+---
+>         if(lines_kvp.size == 2) {
+>           cpu = lines_kvp(0).toDouble
+>           memory = lines_kvp(1).toInt
+370c403
+<         buffer.close
+---
+>         buffer_kvp.close
+377a411,440
+> 
+>       // check cpu usage of cgroup
+>       if(Files.exists(Paths.get(cgroupCpuPath))) {
+>         val buffer_cgroup = Source.fromFile(cgroupCpuPath)
+>         val lines_cgroup = buffer_cgroup.getLines.toArray
+>         var cpu_time: Long = 0
+>         if(lines_cgroup.size == 1) {
+>           cpu_time = lines_cgroup(0).toLong
+>         }
+>         if(cgroupCheckTime == 0) {
+>           cgroupCheckTime = System.nanoTime
+>           cgroupCpuTime = cpu_time
+>         } else {
+>           var curns: Long = System.nanoTime
+>           // update
+>           cgroupCpuUsage = ((cpu_time - cgroupCpuTime).toDouble / (curns - cgroupCheckTime))
+>           cgroupCpuUsage = (cgroupCpuUsage * 1000).toInt/1000.0
+> 
+>           cgroupCheckTime = curns
+>           cgroupCpuTime = cpu_time
+>           cpu_usage_window(cpu_usage_window_ptr) = cgroupCpuUsage
+>           proceed_cpu_window_ptr()
+>           logging.info(this, s"cgroupCpuUsage = ${cgroupCpuUsage}")
+>           logging.info(this, s"mean_cgroupCpuUsage = ${get_mean_cpu()}")
+> 
+>         }
+>         buffer_cgroup.close
+>       } else {
+>         logging.warn(this, s"${cgroupCpuPath} does not exist")
+>       }
+385c448
+<     memoryConsumptionOf(pool) + memory.toMB <= availMemory.toMB && cpuConsumptionOf(pool) + cpuUtil <= availCpu*overSubscribedRate
+---
+>     memoryConsumptionOf(pool) + memory.toMB <= availMemory.toMB && get_mean_cpu() + cpuUtil <= availCpu*overSubscribedRate
+488c551
+<       remove(freeContainers - ref, remainingMemory, cpu, toRemove ++ List(ref))
+---
+>       remove(freeContainers - ref, remainingMemory, remainingCpu, toRemove ++ List(ref))
+diff -r openwhisk-harv-vm-cgroup-azure-distributed/core/invoker/src/main/scala/org/apache/openwhisk/core/containerpool/ContainerProxy.scala ath_validation/openwhisk-harv-vm-cgroup-ath/core/invoker/src/main/scala/org/apache/openwhisk/core/containerpool/ContainerProxy.scala
+186c186,188
+< case class Run(action: ExecutableWhiskAction, msg: ActivationMessage, retryLogDeadline: Option[Deadline] = None)
+---
+> // yanqi, add startInstant to track container start time
+> case class Run(action: ExecutableWhiskAction, msg: ActivationMessage, 
+>   retryLogDeadline: Option[Deadline] = None, var startInstant: Option[Instant] = None)
+258c260
+<   // yanqi, keep a record of currentCpuLimit to chech if it changes
+---
+>   // yanqi, keep a record of currentCpuLimit to check if it changes
+292a295,296
+>       // yanqi, update timestamp to track cold start time
+>       job.startInstant = Some(Instant.now)
+324a329,336
+> 
+>             // yanqi, debug, check developer error container start overhead
+>             val failure_container_overhead = Duration.create(Instant.now.toEpochMilli - job.startInstant.get.toEpochMilli, 
+>               MILLISECONDS).toMicros
+>             t match {
+>               case BlackboxStartupError(msg) => logging.warn(this, s"aid ${job.msg.activationId.toString} developerError container overhead=${failure_container_overhead}us")
+>             }
+> 
+338c350,352
+<               0.0) // yanqi, when failed, set cpu util to 0.0 by default
+---
+>               0.0,
+>               0,
+>               0) // yanqi, when failed, set cpu util to 0.0 & execution time & total time to 0 by default
+624a639,640
+>     var exeTime: Long = 0  // in us
+>     var totalTime: Long = 0 // in us
+663a680,686
+>               exeTime = runInterval.duration.toMicros // yanqi, update execution time
+>               if (job.startInstant.isEmpty) {
+>                 totalTime = exeTime
+>               } else {
+>                 totalTime = Duration.create(runInterval.end.toEpochMilli - job.startInstant.get.toEpochMilli, MILLISECONDS).toMicros
+>               }
+> 
+696,697c719,721
+<         // yanqi, cpu_util is included in completion ack, not result ack
+<         sendActiveAck(tid, _, job.msg.blocking, job.msg.rootControllerIndex, job.msg.user.namespace.uuid, false, 0.0))
+---
+>         // yanqi, cpu_util & exe time is included in completion ack, not result ack
+>         sendActiveAck(tid, _, job.msg.blocking, job.msg.rootControllerIndex, job.msg.user.namespace.uuid, false, 
+>           0.0, 0, 0))
+742c766,768
+<               cpuUtil))
+---
+>               cpuUtil,
+>               exeTime,
+>               totalTime))
+770c796,797
+<     ack: (TransactionId, WhiskActivation, Boolean, ControllerInstanceId, UUID, Boolean, Double) => Future[Any], // yanqi, add Double for cpu util
+---
+>     // yanqi, add Double for cpu util & Long for exe time & Long for total time
+>     ack: (TransactionId, WhiskActivation, Boolean, ControllerInstanceId, UUID, Boolean, Double, Long, Long) => Future[Any], 
+diff -r openwhisk-harv-vm-cgroup-azure-distributed/core/invoker/src/main/scala/org/apache/openwhisk/core/containerpool/docker/DockerContainer.scala ath_validation/openwhisk-harv-vm-cgroup-ath/core/invoker/src/main/scala/org/apache/openwhisk/core/containerpool/docker/DockerContainer.scala
+108a109,111
+>     val cpu_period: Long = 10000  // default period: 10 ms (10000 us)
+>     val cpu_quota: Long = (cpus * cpu_period).toLong
+> 
+116a120,123
+>       "--cpu-period",
+>       cpu_period.toString,
+>       "--cpu-quota",
+>       cpu_quota.toString,
+267d273
+<     val start_system_ns = System.nanoTime  // yanqi, docker cpu usage
+297c303
+<         val end_system_ns = System.nanoTime
+---
+>         val real_time_ns = (finished.toEpochMilli() - started.toEpochMilli()) * 1000000
+304,305c310,311
+< 
+<         val cpu_util: Double = math.ceil((end_docker_cpu_time - start_docker_cpu_time).toDouble/(end_system_ns - start_system_ns).toDouble*100).toInt/100.0
+---
+>         val raw_cpu_util: Double = (end_docker_cpu_time - start_docker_cpu_time)/real_time_ns.toDouble
+>         val cpu_util: Double = math.round(raw_cpu_util*10)/10.0
+diff -r openwhisk-harv-vm-cgroup-azure-distributed/core/invoker/src/main/scala/org/apache/openwhisk/core/invoker/InvokerReactive.scala ath_validation/openwhisk-harv-vm-cgroup-ath/core/invoker/src/main/scala/org/apache/openwhisk/core/invoker/InvokerReactive.scala
+49c49
+<   // yanqi, add cpu util
+---
+>   // yanqi, add cpu util & execution time & total time
+61a62,63
+>    * @param Long is execution time of the function
+>    * @param Long is total time of the function (including cold start)
+63c65,66
+<   type ActiveAck = (TransactionId, WhiskActivation, Boolean, ControllerInstanceId, UUID, Boolean, Double) => Future[Any]
+---
+>   type ActiveAck = (TransactionId, WhiskActivation, Boolean, ControllerInstanceId, UUID, Boolean, 
+>     Double, Long, Long) => Future[Any]
+152a156
+>   // yanqi, add cpu util & execution time
+159c163,165
+<                                                 cpuUtil: Double) => {
+---
+>                                                 cpuUtil: Double,
+>                                                 exeTime: Long,
+>                                                 totalTime: Long) => {
+166,167c172,173
+<         // yanqi, add cpuUtil to CompletionMessage
+<         CompletionMessage(transid, aid, isWhiskSystemError, instance, cpuUtil)
+---
+>         // yanqi, add cpuUtil & exeTime & totalTime to CompletionMessage
+>         CompletionMessage(transid, aid, isWhiskSystemError, instance, cpuUtil, exeTime, totalTime)
+275c281,282
+<                 ack(msg.transid, activation, msg.blocking, msg.rootControllerIndex, msg.user.namespace.uuid, true, 0.0)  // yanqi, add 0.0 as default cpu util
+---
+>                 // yanqi, add 0.0 as default cpu util & 0 as default execution time & total time
+>                 ack(msg.transid, activation, msg.blocking, msg.rootControllerIndex, msg.user.namespace.uuid, true, 0.0, 0, 0)   
+285c292,293
+<           ack(msg.transid, activation, false, msg.rootControllerIndex, msg.user.namespace.uuid, true, 0.0)    // yanqi, add 0.0 as default cpu util
+---
+>             // yanqi, add 0.0 as default cpu util & 0 as default execution time & total time
+>           ack(msg.transid, activation, false, msg.rootControllerIndex, msg.user.namespace.uuid, true, 0.0, 0, 0)    

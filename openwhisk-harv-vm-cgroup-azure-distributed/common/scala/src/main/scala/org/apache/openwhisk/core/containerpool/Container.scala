@@ -162,9 +162,16 @@ trait Container {
     // yanqi, first update cpu limit
     if(updateDocker) {
       var start_ns = System.nanoTime
+      // val cpuUpdateArgs: Seq[String] = Seq(
+      //   "--cpus",
+      //   cpuLimit.toString)
+      val cpu_period: Long = 10000  // default period: 10 ms (10000 us)
+      val cpu_quota: Long = (cpuLimit * cpu_period).toLong
       val cpuUpdateArgs: Seq[String] = Seq(
-        "--cpus",
-        cpuLimit.toString)
+        "--cpu-period",
+        cpu_period.toString,
+        "--cpu-quota",
+        cpu_quota.toString)
       update(cpuUpdateArgs)
       logging.warn(this, s"docker update ${cpuUpdateArgs} time = ${(System.nanoTime - start_ns)/1000000.0}ms")
     }

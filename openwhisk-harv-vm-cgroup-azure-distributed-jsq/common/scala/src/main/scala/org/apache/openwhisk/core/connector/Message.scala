@@ -91,14 +91,12 @@ abstract class AcknowledegmentMessage(private val tid: TransactionId) extends Me
  * This message is sent from the invoker to the controller, after the slot of an invoker that has been used by the
  * current action, is free again (after log collection)
  */
-// yanqi, add cpu util & execution time & total time (including container creation time) (us) to CompletionMessage
+// yanqi, add cpu util to CompletionMessage
 case class CompletionMessage(override val transid: TransactionId,
                              activationId: ActivationId,
                              isSystemError: Boolean,
                              invoker: InvokerInstanceId, 
-                             cpuUtil: Double,
-                             exeTime: Long,
-                             totalTime: Long)
+                             cpuUtil: Double)
     extends AcknowledegmentMessage(transid) {
 
   override def toString = {
@@ -109,7 +107,7 @@ case class CompletionMessage(override val transid: TransactionId,
 object CompletionMessage extends DefaultJsonProtocol {
   def parse(msg: String): Try[CompletionMessage] = Try(serdes.read(msg.parseJson))
   // implicit val serdes = jsonFormat4(CompletionMessage.apply)
-  implicit val serdes = jsonFormat7(CompletionMessage.apply)  // yanqi
+  implicit val serdes = jsonFormat5(CompletionMessage.apply)  // yanqi
 }
 
 /**
@@ -173,8 +171,7 @@ object AcknowledegmentMessage extends DefaultJsonProtocol {
 }
 
 // yanqi, add rsc info to PingMessage, core/cpu number and memory (in MB)
-case class PingMessage(instance: InvokerInstanceId, cpu: Int, memory: Int, 
-    controller_set: Set[String]) extends Message {
+case class PingMessage(instance: InvokerInstanceId, cpu: Int, memory: Int) extends Message {
   override def serialize = PingMessage.serdes.write(this).compactPrint
 }
 
@@ -186,8 +183,7 @@ case class PingMessage(instance: InvokerInstanceId, cpu: Int, memory: Int,
 // yanqi, modify jsonFormat w.r.t PingMessage
 object PingMessage extends DefaultJsonProtocol {
   def parse(msg: String) = Try(serdes.read(msg.parseJson))
-  implicit val serdes = jsonFormat(PingMessage.apply _, "name", "cpu", "memory", 
-    "controller_set")
+  implicit val serdes = jsonFormat(PingMessage.apply _, "name", "cpu", "memory")
 }
 // object PingMessage extends DefaultJsonProtocol {
 //   def parse(msg: String) = Try(serdes.read(msg.parseJson))

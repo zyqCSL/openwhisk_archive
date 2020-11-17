@@ -71,10 +71,10 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
   var prewarmedPool = immutable.Map.empty[ActorRef, ContainerData]
 
   // map fo function cpu utilization, used for cpu admission control
-  var overSubscribedRate: Double = 1.5
+  var overSubscribedRate: Double = 2.0
 
   var availMemory: ByteSize = poolConfig.userMemory
-  var availCpu: Double = 1.0
+  var availCpu: Double = 10.0
   // If all memory slots are occupied and if there is currently no container to be removed, than the actions will be
   // buffered here to keep order of computation.
   // Otherwise actions with small memory-limits could block actions with large memory limits.
@@ -83,8 +83,36 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
 
   // yanqi, make invoker check its resources periodically
   val resourceCheckInterval: Long = 1000 // check resource every 1000ms
-  var prevCheckTime: Long = 0 
+  var prevCheckTime: Long = 0 // in ms
+  var cgroupCheckTime: Long = 0 // in ns
   val resourcePath = "/hypervkvp/.kvp_pool_0"
+  val cgroupCpuPath = "/sys/fs/cgroup/cpuacct/cgroup_harvest_vm/cpuacct.usage"
+  var cgroupCpuTime: Long = 0   // in ns
+  var cgroupCpuUsage: Double = 0.0
+  var cpuUsageWindowSize: Int = 5
+  var cpuUsageWindow: Array[Double] = Array.fill(cpuUsageWindowSize)(-1.0)
+  var cpuUsageWindowPtr: Int = 0
+
+  def get_mean_cpu(): Double = {
+    var samples: Int = 0
+    var sum_cpu: Double = 0
+    var i: Int = 0
+    while(i < cpuUsageWindowSize) {
+      if(cpuUsageWindow(i) >= 0) {
+        samples = samples + 1
+        sum_cpu = sum_cpu + cpuUsageWindow(i)
+      }
+      i = i + 1
+    }
+    sum_cpu / samples
+  }
+
+  def proceed_cpu_window_ptr() {
+    cpuUsageWindowPtr = cpuUsageWindowPtr + 1
+    if(cpuUsageWindowPtr >= cpuUsageWindowSize) {
+      cpuUsageWindowPtr = 0
+    }
+  }
 
   prewarmConfig.foreach { config =>
     logging.info(this, s"pre-warming ${config.count} ${config.exec.kind} ${config.cpuLimit.toString} ${config.memoryLimit.toString}")(
@@ -124,6 +152,9 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
         cpuLimit = r.action.limits.cpu.cores
       if(cpuUtil <= 0)
         cpuUtil = r.action.limits.cpu.cores
+
+      // // debug
+      // logging.warn(this, s"receive Run cpu util ${cpuUtil}, cpu limit ${cpuLimit}")
 
       // Only process request, if there are no other requests waiting for free slots, or if the current request is the
       // next request to process
@@ -168,8 +199,8 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
           case Some(((actor, data), containerState)) =>
             //increment active count before storing in pool map
 
-            // debug
-            logging.warn(this, s"schedule container cpu util ${data.cpuUtil}, cpu limit ${data.cpuLimit}")
+            // // debug
+            // logging.warn(this, s"schedule container cpu util ${data.cpuUtil}, cpu limit ${data.cpuLimit}")
 
             val newData = data.nextRun(r)
             val container = newData.getContainer
@@ -199,6 +230,7 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
               runBuffer = newBuffer
               runBuffer.dequeueOption.foreach { case (run, _) => self ! run }
             }
+
             actor ! r // forwards the run request to the container
             logContainerStart(r, containerState, newData.activeActivationCount, container)
           case None =>
@@ -208,12 +240,13 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
             val isErrorLogged = r.retryLogDeadline.map(_.isOverdue).getOrElse(true)
             val retryLogDeadline = if (isErrorLogged) {
               // yanqi, add cpu and change memory limit
+
               logging.error(
                 this,
                 s"Rescheduling Run message, too many message in the pool, " +
                   s"freePoolSize: ${freePool.size} containers and ${memoryConsumptionOf(freePool)} MB, ${cpuConsumptionOf(freePool)} cpus, " +
                   s"busyPoolSize: ${busyPool.size} containers and ${memoryConsumptionOf(busyPool)} MB, ${cpuConsumptionOf(busyPool)} cpus " +
-                  // s"maxContainersMemory ${poolConfig.userMemory.toMB} MB, " +
+                  s"mean_cgroupCpuUsage ${get_mean_cpu()}, " +
                   s"maxContainersMemory ${availMemory.toMB} MB , " +
                   s"maxContainersCpu ${availCpu} , " +
                   s"userNamespace: ${r.msg.user.namespace.name}, action: ${r.action}, " +
@@ -355,25 +388,55 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
     // yanqi, add periodic check of available resources
     val curms: Long = System.currentTimeMillis()
     if(curms - prevCheckTime >= resourceCheckInterval) {
+      prevCheckTime = curms
       var cpu: Double = 1.0
       var memory: Int = 2048
 
-      prevCheckTime = curms
       if(Files.exists(Paths.get(resourcePath))) {
-        val buffer = Source.fromFile(resourcePath)
-        val lines = buffer.getLines.toArray
+        val buffer_kvp = Source.fromFile(resourcePath)
+        val lines_kvp = buffer_kvp.getLines.toArray
         
-        if(lines.size == 2) {
-          cpu = lines(0).toDouble
-          memory = lines(1).toInt
+        if(lines_kvp.size == 2) {
+          cpu = lines_kvp(0).toDouble
+          memory = lines_kvp(1).toInt
         }
-        buffer.close
+        buffer_kvp.close
       }
   
       if(cpu != availCpu || memory != availMemory.toMB) {
         availCpu = cpu
         availMemory = ByteSize(memory, SizeUnits.MB)
         logging.warn(this, s"memory changed to ${memory}MB, cpu changed to ${availCpu}")
+      }
+
+      // check cpu usage of cgroup
+      if(Files.exists(Paths.get(cgroupCpuPath))) {
+        val buffer_cgroup = Source.fromFile(cgroupCpuPath)
+        val lines_cgroup = buffer_cgroup.getLines.toArray
+        var cpu_time: Long = 0
+        if(lines_cgroup.size == 1) {
+          cpu_time = lines_cgroup(0).toLong
+        }
+        if(cgroupCheckTime == 0) {
+          cgroupCheckTime = System.nanoTime
+          cgroupCpuTime = cpu_time
+        } else {
+          var curns: Long = System.nanoTime
+          // update
+          cgroupCpuUsage = ((cpu_time - cgroupCpuTime).toDouble / (curns - cgroupCheckTime))
+          cgroupCpuUsage = (cgroupCpuUsage * 1000).toInt/1000.0
+
+          cgroupCheckTime = curns
+          cgroupCpuTime = cpu_time
+          cpuUsageWindow(cpuUsageWindowPtr) = cgroupCpuUsage
+          proceed_cpu_window_ptr()
+          logging.info(this, s"cgroupCpuUsage = ${cgroupCpuUsage}")
+          logging.info(this, s"mean_cgroupCpuUsage = ${get_mean_cpu()}")
+
+        }
+        buffer_cgroup.close
+      } else {
+        logging.warn(this, s"${cgroupCpuPath} does not exist")
       }
     }
 
@@ -382,7 +445,7 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
     // logging.warn(this, s"cpu consumption ${cpuConsumptionOf(pool) + cpuUtil}, total cpu ${availCpu}, enough rsc ${memoryConsumptionOf(pool) + memory.toMB <= availMemory.toMB && cpuConsumptionOf(pool) + cpuUtil <= availCpu*overSubscribedRate}")
 
     // memoryConsumptionOf(pool) + memory.toMB <= poolConfig.userMemory.toMB
-    memoryConsumptionOf(pool) + memory.toMB <= availMemory.toMB && cpuConsumptionOf(pool) + cpuUtil <= availCpu*overSubscribedRate
+    memoryConsumptionOf(pool) + memory.toMB <= availMemory.toMB && get_mean_cpu() + cpuUtil <= availCpu*overSubscribedRate
   }
 }
 
@@ -485,7 +548,7 @@ object ContainerPool {
       // Catch exception if remaining memory will be negative
       val remainingMemory = Try(memory - data.memoryLimit).getOrElse(0.B)
       var remainingCpu = Math.max(cpu - data.cpuUtil, 0)
-      remove(freeContainers - ref, remainingMemory, cpu, toRemove ++ List(ref))
+      remove(freeContainers - ref, remainingMemory, remainingCpu, toRemove ++ List(ref))
     } else {
       // If this is the first call: All containers are in use currently, or there is more memory needed than
       // containers can be removed.

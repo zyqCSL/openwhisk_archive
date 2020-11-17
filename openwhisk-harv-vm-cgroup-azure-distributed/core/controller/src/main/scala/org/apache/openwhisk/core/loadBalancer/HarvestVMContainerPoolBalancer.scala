@@ -284,7 +284,8 @@ class HarvestVMContainerPoolBalancer(
       msg.cpuLimit = cpuLimit
 
       if(cpuUtil <= 0.0)
-        cpuUtil = cpuLimit
+        cpuUtil = 1.0  // assume each activation uses 1 cpu without profiling info
+      msg.cpuUtil = cpuUtil
 
       // val invoker: Option[(InvokerInstanceId, Boolean)] = HarvestVMContainerPoolBalancer.schedule(
       //   action.limits.concurrency.maxConcurrent,
@@ -583,7 +584,8 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
       for(i <- 0 to invokers.size - 1) {
         val this_invoker = invokers(i)
         val this_invoker_id = this_invoker.id.toInt
-        if(this_invoker.status.isUsable && this_invoker.cpu.toDouble >= cpuLimit) {
+        // if(this_invoker.status.isUsable && this_invoker.cpu.toDouble >= cpuLimit) {
+        if(this_invoker.status.isUsable) {
           val (leftcpu, leftmem, score) = usedResources(this_invoker_id).reportLeftResources(this_invoker.cpu.toDouble/clusterSize, this_invoker.memory/clusterSize, reqCpu, reqMemory, maxConcurrent, fqn)
                 
           logging.warn(this, s"check invoker${this_invoker_id} leftcpu ${leftcpu} leftmem ${leftmem} score ${score}")
@@ -677,7 +679,8 @@ class ConcurrencySlot(val maxConcurrent: Int) {
   }
 }
 
-class InvokerResourceUsage(var _cpu: Double, var _memory: Int, var _id: Int, var _cpu_coeff: Double, var _mem_coeff: Double)(implicit logging: Logging) {
+class InvokerResourceUsage(var _cpu: Double, var _memory: Int, 
+    var _id: Int, var _cpu_coeff: Double, var _mem_coeff: Double)(implicit logging: Logging) {
   protected var cpu: Double = _cpu
   protected var memory: Int = _memory
   protected val id: Int = _id
@@ -825,6 +828,21 @@ class InvokerResourceUsage(var _cpu: Double, var _memory: Int, var _id: Int, var
 
 }
 
+class SyncControllerSet(var _clusterSize: Int) {
+  var _controllerSet: Set[String] = Set[String]
+
+  def clusterSize: Int = {
+    this.synchronized { return _clusterSize }
+  }
+
+  def update(controller_set: Set[String]) {
+    this.synchronized {
+      _controllerSet = controller_set
+      _clusterSize = _controllerSet.size
+    }
+  }
+}
+
 /**
  * Holds the state necessary for scheduling of actions.
  *
@@ -848,6 +866,7 @@ case class HarvestVMContainerPoolBalancerState(
   // for scoring nodes
   protected val _cpuCoeff: Double = 3.0,
   protected val _memCoeff: Double = 1.0,
+  protected val _clusterResetInterval: Long = 10 * 1000,  // 10s (to ms)
   private var _clusterSize: Int = 1)(
   lbConfig: HarvestVMContainerPoolBalancerConfig =
     loadConfigOrThrow[HarvestVMContainerPoolBalancerConfig](ConfigKeys.loadbalancer))(implicit logging: Logging) {
@@ -871,7 +890,24 @@ case class HarvestVMContainerPoolBalancerState(
   def blackboxStepSizes: Seq[Int] = _blackboxStepSizes
   // def invokerSlots: IndexedSeq[NestedSemaphore[FullyQualifiedEntityName]] = _invokerSlots
   def usedResources: Map[Int, InvokerResourceUsage] = _usedResources
-  def clusterSize: Int = _clusterSize
+  // def clusterSize: Int = _clusterSize
+
+  // cluster size book-keeping info
+  private var controllerSet: SyncControllerSet = new SyncControllerSet(_clusterSize)
+
+  private def updateControllerSet() {
+    var controller_set: Set[String] = Set[String]()
+    for(i <- 0 to _invokers.size - 1) {
+        val this_invoker = _invokers(i)
+        if(this_invoker.status.isUsable) {
+          // merge the set of controllers
+          controller_set = controller_set ++ this_invoker.controller_set
+        }
+    }
+    controllerSet.update(controller_set)
+  }
+
+  def clusterSize: Int = controllerSet.clusterSize
 
   /**
    * @param memory
@@ -916,6 +952,9 @@ case class HarvestVMContainerPoolBalancerState(
     _invokers = newInvokers
     _managedInvokers = _invokers.take(managed)
     _blackboxInvokers = _invokers.takeRight(blackboxes)
+
+    // todo: update number of controllers here
+    updateControllerSet()
 
     val logDetail = if (oldSize != newSize) {
       _managedStepSizes = HarvestVMContainerPoolBalancer.pairwiseCoprimeNumbersUntil(managed)

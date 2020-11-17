@@ -68,57 +68,46 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
   protected val totalBlackBoxActivationMemory = new LongAdder()
   protected val totalManagedActivationMemory = new LongAdder()
 
-  /* distribution of cpu usage of functions, yanqi*/
+  /* distribution of cpu usage of functions, yanqimport scala.mathi*/
   protected[loadBalancer] val functionCpuUtil = TrieMap[FullyQualifiedEntityName, Double]()
   // distribution is only accessed in dataProcessor
   protected[loadBalancer] val functionCpuUtilDistr = MMap[FullyQualifiedEntityName, Distribution]()
   // value for docker --cpus limit
   protected[loadBalancer] val functionCpuLimit = TrieMap[FullyQualifiedEntityName, Double]()
   protected val cpuUtilNumCores:Int = 40
-  protected val cpuUtilUpdatBatch:Int = 20
+  protected val cpuUtilUpdatBatch:Int = 100
   protected val cpuUtilPercentile: Double = 0.75
   protected val cpuLimitPercentile: Double = 0.99
   protected val functionSampleRate: Double = 1.0
-  protected val functionSampleUseExpectation: Boolean = true
-  // protected val cpuUtilWindow:Int = 10
-  protected val redundantRatio: Double = 1.5
-  protected val provisionRatio: Double = 2.0
+  protected val functionSampleUseExpectation: Boolean = false
+  protected val cpuUtilWindow:Int = 50
+  protected val redundantRatio: Double = 1.001
   protected val randomGen = Random
-  protected val maxCpuLimit: Double = 16.0
-  protected val minCpuLimit: Double = 1.0
 
-  case class InvocationSample(actionId: FullyQualifiedEntityName, cpuUtil: Double, 
-    exeTime: Long, totalTime:Long, updateCpuLimit: Boolean)
+  case class InvocationSample(actionId: FullyQualifiedEntityName, cpuUtil: Double, updateCpuLimit: Boolean)
   // use another process for proecssing data wrt function cpu util distribution
   private val dataProcessor = actorSystem.actorOf(Props(new Actor {
     override def receive: Receive = {
       case sample: InvocationSample =>
         // logging.info(this, s"In CommonLoadBalancer dataProcessor") 
         val (estimated_cpu, cpu_limit) = functionCpuUtilDistr.getOrElseUpdate(sample.actionId, 
-                // new Distribution(cpuUtilNumCores, cpuUtilUpdatBatch, cpuUtilPercentile, cpuLimitPercentile, cpuUtilWindow))
-                new Distribution(cpuUtilNumCores, cpuUtilUpdatBatch, cpuUtilPercentile, cpuLimitPercentile))
-                .addSample(sample.cpuUtil, sample.exeTime, functionSampleUseExpectation)
+                new Distribution(cpuUtilNumCores, cpuUtilUpdatBatch, cpuUtilPercentile, cpuLimitPercentile, cpuUtilWindow))
+                .addSample(sample.cpuUtil, functionSampleUseExpectation)
         // logging.info(this, s"dataProcessor distribution set up") 
         if(estimated_cpu > 0)
           functionCpuUtil.update(sample.actionId, estimated_cpu)
         // logging.info(this, s"dataProcessor functionCpuUtil updated") 
-        val estimated_limit = math.max(minCpuLimit, math.min(maxCpuLimit, math.ceil(cpu_limit * redundantRatio)))
-        if(sample.updateCpuLimit) {
-          val provision_limit = math.max(minCpuLimit, math.min(maxCpuLimit, math.ceil(sample.cpuUtil * provisionRatio)))
-          // force update when the function is invoked the first time
-          functionCpuLimit.update(sample.actionId, provision_limit)
-          logging.info(this, s"function ${sample.actionId.asString} raw_cpu_limit = ${provision_limit} cpu_limit = ${functionCpuLimit.get(sample.actionId)}, cpu_usage = ${estimated_cpu}")
-        } else {
-          // update limit according to redundantRatio 
-          if(cpu_limit > 0)
-            functionCpuLimit.update(sample.actionId, estimated_limit)
-          // val curr_limit = functionCpuLimit.getOrElse(sample.actionId, 0.0)
-          // if(curr_limit < estimated_limit)
-          //   functionCpuLimit.update(sample.actionId, estimated_limit)
-          // // else if(cpu_limit < math.floor(curr_limit/(redundantRatio*redundantRatio)))
-          // //   functionCpuLimit.update(sample.actionId, math.ceil(curr_limit/redundantRatio) )
-          logging.info(this, s"function ${sample.actionId.asString} raw_cpu_limit = ${cpu_limit} cpu_limit = ${functionCpuLimit.get(sample.actionId)}, cpu_usage = ${estimated_cpu}") 
+        val estimated_limit = math.ceil(cpu_limit * redundantRatio)
+        if(sample.updateCpuLimit)
+          functionCpuLimit.update(sample.actionId, estimated_limit)
+        else {
+           val curr_limit = functionCpuLimit.getOrElse(sample.actionId, 0.0)
+           if(curr_limit < estimated_limit)
+            functionCpuLimit.update(sample.actionId, math.min(estimated_limit, 4.0))
+           else if(cpu_limit < math.floor(curr_limit/(redundantRatio*redundantRatio)))
+            functionCpuLimit.update(sample.actionId, math.min(math.ceil(curr_limit/redundantRatio), 4.0) )
         }
+        logging.info(this, s"function ${sample.actionId.asString} raw_cpu_limit = ${cpu_limit} cpu_limit = ${functionCpuLimit.get(sample.actionId)}, cpu_usage = ${estimated_cpu}") 
     }
   }))
 
@@ -208,8 +197,7 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
     activationSlots.getOrElseUpdate(
       msg.activationId, {
         val timeoutHandler = actorSystem.scheduler.scheduleOnce(completionAckTimeout) {
-          processCompletion(msg.activationId, msg.transid, forced = true, isSystemError = false, invoker = instance, 
-            cpuUtil = cpuUtil, exeTime = 0, totalTime = 0) // yanqi, keep cpuUtil for timeout for invoker stats keeping
+          processCompletion(msg.activationId, msg.transid, forced = true, isSystemError = false, invoker = instance, cpuUtil = 0.0) // yanqi, default cpu util being 0.0
         }
 
         // please note: timeoutHandler.cancel must be called on all non-timeout paths, e.g. Success
@@ -277,9 +265,7 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
           forced = false,
           isSystemError = m.isSystemError,
           invoker = m.invoker,
-          m.cpuUtil,
-          m.exeTime,
-          m.totalTime)  // yanqi, add cpu util & exe Time & totalTime
+          m.cpuUtil)  // yanqi, add cpu util
         activationFeed ! MessageFeed.Processed
 
       case Success(m: ResultMessage) =>
@@ -322,15 +308,13 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
     LoggingMarkers.LOADBALANCER_COMPLETION_ACK(controllerInstance, ForcedAfterRegularCompletionAck)
 
   /** 6. Process the completion ack and update the state */
-  // yanqi, add cpu util & execution time & total time (including cold start)
+  // yanqi, add cpu util
   protected[loadBalancer] def processCompletion(aid: ActivationId,
                                                 tid: TransactionId,
                                                 forced: Boolean,
                                                 isSystemError: Boolean,
                                                 invoker: InvokerInstanceId,
-                                                cpuUtil: Double,
-                                                exeTime: Long,
-                                                totalTime: Long): Unit = {
+                                                cpuUtil: Double): Unit = {
 
     val invocationResult = if (forced) {
       InvocationFinishedResult.Timeout
@@ -356,8 +340,8 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
 
         // yanqi, update cpu usage
         if(cpuUtil > 0 && randomGen.nextDouble <= functionSampleRate)
-          dataProcessor ! InvocationSample(entry.fullyQualifiedEntityName, cpuUtil, exeTime, totalTime, entry.updateCpuLimit)
-        logging.info(this, s"function ${entry.fullyQualifiedEntityName.asString}, activation id ${aid}, cpu usage=${cpuUtil}, exe time=${exeTime}, total time=${totalTime}")(tid)
+          dataProcessor ! InvocationSample(entry.fullyQualifiedEntityName, cpuUtil, entry.updateCpuLimit)
+        logging.info(this, s"function ${entry.fullyQualifiedEntityName.asString}, activation id ${aid}, cpu usage = ${cpuUtil}")(tid)
 
         if (!forced) {
           entry.timeoutHandler.cancel()

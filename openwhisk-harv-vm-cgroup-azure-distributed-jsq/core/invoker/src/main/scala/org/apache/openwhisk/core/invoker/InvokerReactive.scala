@@ -43,12 +43,10 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 import scala.io.Source
 import java.nio.file.{Paths, Files} // yanqi, check file exists
-// yanqi, needs to be renamed, otherwise conflit with immutable collection
-import scala.collection.mutable.{Map=>MMap}
 
 object InvokerReactive extends InvokerProvider {
 
-  // yanqi, add cpu util & execution time & total time
+  // yanqi, add cpu util
   /**
    * An method for sending Active Acknowledgements (aka "active ack") messages to the load balancer. These messages
    * are either completion messages for an activation to indicate a resource slot is free, or result-forwarding
@@ -61,11 +59,8 @@ object InvokerReactive extends InvokerProvider {
    * @param UUID is the UUID for the namespace owning the activation
    * @param Boolean is true this is resource free message and false if this is a result forwarding message
    * @param Double is cpu utilization of the function
-   * @param Long is execution time of the function
-   * @param Long is total time of the function (including cold start)
    */
-  type ActiveAck = (TransactionId, WhiskActivation, Boolean, ControllerInstanceId, UUID, Boolean, 
-    Double, Long, Long) => Future[Any]
+  type ActiveAck = (TransactionId, WhiskActivation, Boolean, ControllerInstanceId, UUID, Boolean, Double) => Future[Any]
 
   override def instance(
     config: WhiskConfig,
@@ -93,42 +88,6 @@ class InvokerReactive(
 
   private val logsProvider = SpiLoader.get[LogStoreProvider].instance(actorSystem)
   logging.info(this, s"LogStoreProvider: ${logsProvider.getClass}")
-
-  /* controller accounting. yanqi */
-  class SyncIdMap() {
-    var sync_map: MMap[String, Long] = MMap[String, Long]()
-    
-    def update(new_id: String) {
-      this.synchronized { sync_map(new_id) = System.currentTimeMillis() } }
-    
-    def size(): Int = {
-      this.synchronized { return sync_set.size } }
-    
-    def prune(valid_interval: Long) {
-      this.synchronized { 
-        var new_map: MMap[String, Long] = MMap[String, Long]()
-        var cur_time: Long = System.currentTimeMillis()
-        sync_map.foreach{ keyVal => 
-          if(cur_time - keyVal._2 <= valid_interval) { 
-            new_map(keyVal._1) = keyVal._2
-          } 
-        }
-        sync_map = new_map
-      } 
-    }
-
-    def toSet(): Set[String] = {
-      this.synchronized {
-        var set: Set[String] = Set()
-        sync_map.foreach { keyVal => set = set + keyVal._1}
-        return set
-      }
-    }
-
-  }
-
-  var controllerIdMap = new SyncIdMap()
-  var controllerMapResetInterval: Long = 10*1000 // 10 seconds to ms
 
   /**
    * Factory used by the ContainerProxy to physically create a new container.
@@ -191,24 +150,21 @@ class InvokerReactive(
   })
 
   /** Sends an active-ack. */
-  // yanqi, add cpu util & execution time
   private val ack: InvokerReactive.ActiveAck = (tid: TransactionId,
                                                 activationResult: WhiskActivation,
                                                 blockingInvoke: Boolean,
                                                 controllerInstance: ControllerInstanceId,
                                                 userId: UUID,
                                                 isSlotFree: Boolean,
-                                                cpuUtil: Double,
-                                                exeTime: Long,
-                                                totalTime: Long) => {
+                                                cpuUtil: Double) => {
     implicit val transid: TransactionId = tid
 
     def send(res: Either[ActivationId, WhiskActivation], recovery: Boolean = false) = {
       val msg = if (isSlotFree) {
         val aid = res.fold(identity, _.activationId)
         val isWhiskSystemError = res.fold(_ => false, _.response.isWhiskError)
-        // yanqi, add cpuUtil & exeTime & totalTime to CompletionMessage
-        CompletionMessage(transid, aid, isWhiskSystemError, instance, cpuUtil, exeTime, totalTime)
+        // yanqi, add cpuUtil to CompletionMessage
+        CompletionMessage(transid, aid, isWhiskSystemError, instance, cpuUtil)
       } else {
         ResultMessage(transid, res)
       }
@@ -273,9 +229,6 @@ class InvokerReactive(
         //set trace context to continue tracing
         WhiskTracerProvider.tracer.setTraceContext(transid, msg.traceContext)
 
-        // update controllerIdMap. yanqi
-        controllerIdMap.update(msg.rootControllerIndex.asString)
-
         if (!namespaceBlacklist.isBlacklisted(msg.user)) {
           val start = transid.started(this, LoggingMarkers.INVOKER_ACTIVATION, logLevel = InfoLevel)
           val namespace = msg.action.path
@@ -319,8 +272,7 @@ class InvokerReactive(
                 val context = UserContext(msg.user)
                 val activation = generateFallbackActivation(msg, response)
                 activationFeed ! MessageFeed.Processed
-                // yanqi, add 0.0 as default cpu util & 0 as default execution time & total time
-                ack(msg.transid, activation, msg.blocking, msg.rootControllerIndex, msg.user.namespace.uuid, true, 0.0, 0, 0)   
+                ack(msg.transid, activation, msg.blocking, msg.rootControllerIndex, msg.user.namespace.uuid, true, 0.0)  // yanqi, add 0.0 as default cpu util
                 store(msg.transid, activation, context)
                 Future.successful(())
             }
@@ -330,8 +282,7 @@ class InvokerReactive(
           activationFeed ! MessageFeed.Processed
           val activation =
             generateFallbackActivation(msg, ActivationResponse.applicationError(Messages.namespacesBlacklisted))
-            // yanqi, add 0.0 as default cpu util & 0 as default execution time & total time
-          ack(msg.transid, activation, false, msg.rootControllerIndex, msg.user.namespace.uuid, true, 0.0, 0, 0)    
+          ack(msg.transid, activation, false, msg.rootControllerIndex, msg.user.namespace.uuid, true, 0.0)    // yanqi, add 0.0 as default cpu util
           logging.warn(this, s"namespace ${msg.user.namespace.name} was blocked in invoker.")
           Future.successful(())
         }
@@ -370,29 +321,24 @@ class InvokerReactive(
   }
 
   // yanqi, produce health ping message, here we can piggyback the resource information
-  // plus the gossip information telling each controller how many controllers there are in the system
+  // currently for test only
   private val healthProducer = msgProvider.getProducer(config)
   Scheduler.scheduleWaitAtMost(1.seconds)(() => {
     var cpu = 1
     var memory = 2048
 
-    controllerIdMap.prune(controllerMapResetInterval)
-    var controller_set: Set[String] = controllerIdMap.toSet()
+    if(Files.exists(Paths.get("/hypervkvp/.kvp_pool_0"))) {
+      val buffer = Source.fromFile("/hypervkvp/.kvp_pool_0")
+      val lines = buffer.getLines.toArray
 
-    // check total available resources
-    if(Files.exists(Paths.get(resourcePath))) {
-      val buffer_kvp = Source.fromFile(resourcePath)
-      val lines_kvp = buffer_kvp.getLines.toArray
-      
-      if(lines_kvp.size == 2) {
-        cpu = lines_kvp(0).toDouble
-        memory = lines_kvp(1).toInt
+      if(lines.size == 2) {
+        cpu = lines(0).toInt
+        memory = lines(1).toInt
       }
-      buffer_kvp.close
+      buffer.close
     }
-
-    healthProducer.send("health", PingMessage(
-        instance, cpu, memory, controller_set)).andThen {
+    
+    healthProducer.send("health", PingMessage(instance, cpu, memory)).andThen {
       case Failure(t) => logging.error(this, s"failed to ping the controller: $t")
       // case Success(_) => logging.info(this, s"heartbeat -- cpu: ${cpu}, memory ${memory}, linenum ${lines.size}")
     }

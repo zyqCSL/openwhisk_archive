@@ -35,9 +35,12 @@ import scala.concurrent.duration._
  * @param id a unique instance identifier for the invoker
  * @param status it status (healthy, unhealthy, offline)
  */
-class InvokerHealth(val id: InvokerInstanceId, val status: InvokerState, val cpu: Int, val memory :Int) {
+class InvokerHealth(val id: InvokerInstanceId, val status: InvokerState, 
+    val cpu: Int, val memory :Int, val controller_set: Set[String]) {
   override def equals(obj: scala.Any): Boolean = obj match {
-    case that: InvokerHealth => that.id == this.id && that.status == this.status && that.cpu == this.cpu && that.memory == this.memory
+    case that: InvokerHealth => that.id == this.id && that.status == this.status && 
+                                that.cpu == this.cpu && that.memory == this.memory &&
+                                that.controller_set == this.controller_set
     case _                   => false
   }
 

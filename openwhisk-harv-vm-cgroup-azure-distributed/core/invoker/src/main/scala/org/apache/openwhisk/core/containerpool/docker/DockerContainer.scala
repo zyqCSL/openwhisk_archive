@@ -106,6 +106,9 @@ object DockerContainer {
       case (key, valueList) => valueList.toList.flatMap(Seq(key, _))
     }
 
+    val cpu_period: Long = 10000  // default period: 10 ms (10000 us)
+    val cpu_quota: Long = (cpus * cpu_period).toLong
+
     // change cpu to cpu groups
     // NOTE: --dns-option on modern versions of docker, but is --dns-opt on docker 1.12
     val dnsOptString = if (docker.clientVersion.startsWith("1.12")) { "--dns-opt" } else { "--dns-option" }
@@ -114,6 +117,10 @@ object DockerContainer {
       // cpuShares.toString,
       // "--cpus",
       // cpus.toString,
+      "--cpu-period",
+      cpu_period.toString,
+      "--cpu-quota",
+      cpu_quota.toString,
       "--cgroup-parent",
       "/cgroup_harvest_vm/",
       "--memory",
@@ -264,7 +271,6 @@ class DockerContainer(protected val id: ContainerId,
                                        maxConcurrent: Int,
                                        retry: Boolean = false)(implicit transid: TransactionId): Future[RunResult] = {
     val started = Instant.now()
-    val start_system_ns = System.nanoTime  // yanqi, docker cpu usage
     val cpu_file_exists = Files.exists(Paths.get(dockerCpuPath))
     var start_docker_cpu_time: Long = 0
     if(!cpu_file_exists) {
@@ -294,15 +300,15 @@ class DockerContainer(protected val id: ContainerId,
       .flatMap { response =>
         val finished = Instant.now()
         // yanqi, docker cpu usage
-        val end_system_ns = System.nanoTime
+        val real_time_ns = (finished.toEpochMilli() - started.toEpochMilli()) * 1000000
         var end_docker_cpu_time: Long = 0
         if(cpu_file_exists)
           end_docker_cpu_time = getDockerCpuTime()
 
         // var second_api_end_ns = System.nanoTime
         // logging.warn(this, s"2nd docker cpuacct.usage api time = ${(second_api_end_ns - end_system_ns)/1000000.0}ms")
-
-        val cpu_util: Double = math.ceil((end_docker_cpu_time - start_docker_cpu_time).toDouble/(end_system_ns - start_system_ns).toDouble*100).toInt/100.0
+        val raw_cpu_util: Double = (end_docker_cpu_time - start_docker_cpu_time)/real_time_ns.toDouble
+        val cpu_util: Double = math.round(raw_cpu_util*10)/10.0
         logging.info(this, s"Container ${id.asString} cpu util = ${cpu_util}")
 
         // logging.warn(this, s"compute cpu_util = ${(System.nanoTime - second_api_end_ns)/1000000.0}ms")
