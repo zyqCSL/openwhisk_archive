@@ -96,31 +96,31 @@ class InvokerReactive(
 
   /* controller accounting. yanqi */
   class SyncIdMap() {
-    var sync_map: MMap[String, Long] = MMap[String, Long]()
+    var syncMap: MMap[String, Long] = MMap[String, Long]()
     
-    def update(new_id: String) {
-      this.synchronized { sync_map(new_id) = System.currentTimeMillis() } }
+    def update(newId: String) {
+      this.synchronized { syncMap(newId) = System.currentTimeMillis() } }
     
     def size(): Int = {
-      this.synchronized { return sync_set.size } }
+      this.synchronized { return syncMap.size } }
     
-    def prune(valid_interval: Long) {
+    def prune(timeout: Long) {
       this.synchronized { 
-        var new_map: MMap[String, Long] = MMap[String, Long]()
-        var cur_time: Long = System.currentTimeMillis()
-        sync_map.foreach{ keyVal => 
-          if(cur_time - keyVal._2 <= valid_interval) { 
-            new_map(keyVal._1) = keyVal._2
+        var newMap: MMap[String, Long] = MMap[String, Long]()
+        var curTime: Long = System.currentTimeMillis()
+        syncMap.foreach{ keyVal => 
+          if(curTime - keyVal._2 <= timeout) { 
+            newMap(keyVal._1) = keyVal._2
           } 
         }
-        sync_map = new_map
+        syncMap = newMap
       } 
     }
 
     def toSet(): Set[String] = {
       this.synchronized {
         var set: Set[String] = Set()
-        sync_map.foreach { keyVal => set = set + keyVal._1}
+        syncMap.foreach { keyVal => set = set + keyVal._1}
         return set
       }
     }

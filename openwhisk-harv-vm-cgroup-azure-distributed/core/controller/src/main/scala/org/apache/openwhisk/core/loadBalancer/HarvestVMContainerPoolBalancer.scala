@@ -828,17 +828,32 @@ class InvokerResourceUsage(var _cpu: Double, var _memory: Int,
 
 }
 
-class SyncControllerSet(var _clusterSize: Int) {
-  var _controllerSet: Set[String] = Set[String]
+// default timeout of invoker set to 10s
+class SyncControllerState(val _timeout: Long = 10*1000) {
+  private var controllerGossipTime: MMap[String, Long] = MMap.empty[String, Long]
 
   def clusterSize: Int = {
-    this.synchronized { return _clusterSize }
+    this.synchronized { return controllerGossipTime.size }
   }
 
-  def update(controller_set: Set[String]) {
+  def update(controllerSet: Set[String]) {
     this.synchronized {
-      _controllerSet = controller_set
-      _clusterSize = _controllerSet.size
+      controllerSet.foreach { x =>
+        controllerGossipTime(x) = System.currentTimeMillis()
+      }
+    }
+  }
+
+  def prune() {
+    val curTime = System.currentTimeMillis()
+    this.synchronized {
+      var newMap: MMap[String, Long] = MMap.empty[String, Long]
+      controllerGossipTime.foreach{ keyVal => 
+        if(curTime - keyVal._2 <= _timeout) { 
+            newMap(keyVal._1) = keyVal._2
+        } 
+      }
+      controllerGossipTime = newMap
     }
   }
 }
@@ -892,20 +907,8 @@ case class HarvestVMContainerPoolBalancerState(
   def usedResources: Map[Int, InvokerResourceUsage] = _usedResources
   // def clusterSize: Int = _clusterSize
 
-  // cluster size book-keeping info
-  private var controllerSet: SyncControllerSet = new SyncControllerSet(_clusterSize)
-
-  private def updateControllerSet() {
-    var controller_set: Set[String] = Set[String]()
-    for(i <- 0 to _invokers.size - 1) {
-        val this_invoker = _invokers(i)
-        if(this_invoker.status.isUsable) {
-          // merge the set of controllers
-          controller_set = controller_set ++ this_invoker.controller_set
-        }
-    }
-    controllerSet.update(controller_set)
-  }
+  // keep states of active peer load controllers
+  private var controllerState: SyncControllerState  = new SyncControllerState()
 
   def clusterSize: Int = controllerSet.clusterSize
 
@@ -953,8 +956,11 @@ case class HarvestVMContainerPoolBalancerState(
     _managedInvokers = _invokers.take(managed)
     _blackboxInvokers = _invokers.takeRight(blackboxes)
 
-    // todo: update number of controllers here
-    updateControllerSet()
+    // todo: update controller state here
+    for(i <- _invokers) {
+      controllerState.update(i.controllerSet)
+    }
+    controllerState.prune()
 
     val logDetail = if (oldSize != newSize) {
       _managedStepSizes = HarvestVMContainerPoolBalancer.pairwiseCoprimeNumbersUntil(managed)
