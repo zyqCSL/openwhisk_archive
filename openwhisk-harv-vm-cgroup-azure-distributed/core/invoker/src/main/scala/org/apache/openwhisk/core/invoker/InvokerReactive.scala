@@ -376,8 +376,8 @@ class InvokerReactive(
   // plus the gossip information telling each controller how many controllers there are in the system
   private val healthProducer = msgProvider.getProducer(config)
   Scheduler.scheduleWaitAtMost(1.seconds)(() => {
-    var cpu = 1
-    var memory = 2048
+    var cpu: Int = 1
+    var memory: Int = 2048
 
     controllerIdMap.prune(controllerMapResetInterval)
     var controller_set: Set[String] = controllerIdMap.toSet()
@@ -388,7 +388,7 @@ class InvokerReactive(
       val lines_kvp = buffer_kvp.getLines.toArray
       
       if(lines_kvp.size == 2) {
-        cpu = lines_kvp(0).toDouble
+        cpu = lines_kvp(0).toInt
         memory = lines_kvp(1).toInt
       }
       buffer_kvp.close
