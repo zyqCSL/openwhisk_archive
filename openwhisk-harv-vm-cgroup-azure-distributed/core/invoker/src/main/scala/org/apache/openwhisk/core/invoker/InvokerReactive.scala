@@ -94,6 +94,9 @@ class InvokerReactive(
   private val logsProvider = SpiLoader.get[LogStoreProvider].instance(actorSystem)
   logging.info(this, s"LogStoreProvider: ${logsProvider.getClass}")
 
+  // rsc accounting, yanqi
+  val resourcePath = "/hypervkvp/.kvp_pool_0"
+
   /* controller accounting. yanqi */
   class SyncIdMap() {
     var syncMap: MMap[String, Long] = MMap[String, Long]()
