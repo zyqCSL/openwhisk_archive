@@ -910,7 +910,7 @@ case class HarvestVMContainerPoolBalancerState(
   // keep states of active peer load controllers
   private var controllerState: SyncControllerState  = new SyncControllerState()
 
-  def clusterSize: Int = controllerSet.clusterSize
+  def clusterSize: Int = controllerState.clusterSize
 
   /**
    * @param memory

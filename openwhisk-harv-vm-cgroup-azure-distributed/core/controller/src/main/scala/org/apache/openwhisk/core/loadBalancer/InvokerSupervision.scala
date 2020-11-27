@@ -153,14 +153,18 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
     case CurrentState(invoker, currentState: InvokerState) =>
       refToInstance.get(invoker).foreach { instance =>
         // yanqi, keep previous rsc records
-        status = status.updated(instance.toInt, new InvokerHealth(instance, currentState, status(instance.toInt).cpu, status(instance.toInt).memory))
+        status = status.updated(instance.toInt, new InvokerHealth(instance, currentState, 
+          status(instance.toInt).cpu, status(instance.toInt).memory,
+          status(instance.toInt).controllerSet))
       }
       logStatus()
 
     case Transition(invoker, oldState: InvokerState, newState: InvokerState) =>
       refToInstance.get(invoker).foreach { instance =>
         // yanqi, keep previous rsc records
-        status = status.updated(instance.toInt, new InvokerHealth(instance, newState, status(instance.toInt).cpu, status(instance.toInt).memory))
+        status = status.updated(instance.toInt, new InvokerHealth(instance, newState, 
+          status(instance.toInt).cpu, status(instance.toInt).memory,
+          status(instance.toInt).controllerSet))
       }
       logStatus()
 
@@ -215,7 +219,8 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
       status,
       instanceId.toInt + 1,
       // yanqi, for now, consider 0 rsc on unregistered invokers
-      i => new InvokerHealth(InvokerInstanceId(i, userMemory = instanceId.userMemory), Offline, 0, 0, 1))
+      i => new InvokerHealth(InvokerInstanceId(i, userMemory = instanceId.userMemory), Offline, 
+        0, 0, Set[String]() ))
     status = status.updated(instanceId.toInt, new InvokerHealth(
       instanceId, Offline, cpu, memory, controllerSet))
 
