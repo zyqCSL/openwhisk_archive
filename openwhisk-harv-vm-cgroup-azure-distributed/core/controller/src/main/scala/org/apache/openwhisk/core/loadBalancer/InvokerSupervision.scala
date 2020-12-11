@@ -119,7 +119,9 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
   def receive: Receive = {
     case p: PingMessage =>
       val invoker = instanceToRef.getOrElse(p.instance.toInt, 
-        registerInvoker(p.instance, p.cpu, p.memory, p.controllerSet))
+        registerInvoker(p.instance, p.cpu, p.memory, 
+          p.cpuUsage, p.memUsage, 
+          p.controllerSet))
       instanceToRef = instanceToRef.updated(p.instance.toInt, invoker)
 
       // For the case when the invoker was restarted and got a new displayed name
@@ -127,7 +129,9 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
       if (oldHealth.id != p.instance) {
         // update rsc records?
         status = status.updated(p.instance.toInt, new InvokerHealth(
-          p.instance, oldHealth.status, p.cpu, p.memory, p.controllerSet))
+          p.instance, oldHealth.status, p.cpu, p.memory, 
+          p.cpuUsage, p.memUsage,
+          p.controllerSet))
         refToInstance = refToInstance.updated(invoker, p.instance)
       }
 
@@ -139,7 +143,9 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
           status(p.instance.toInt).memory != p.memory || 
           status(p.instance.toInt).controllerSet != p.controllerSet)) {
         status = status.updated(p.instance.toInt, 
-          new InvokerHealth(p.instance, oldHealth.status, p.cpu, p.memory, p.controllerSet))
+          new InvokerHealth(p.instance, oldHealth.status, 
+            p.cpu, p.memory, p.cpuUsage, p.memUsage,
+            p.controllerSet))
         logStatus()
       }
       invoker.forward(p)
@@ -210,7 +216,9 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
 
   // yanqi, add rsc
   // Register a new invoker
-  def registerInvoker(instanceId: InvokerInstanceId, cpu: Int, memory: Int, controllerSet: Set[String]): ActorRef = {
+  def registerInvoker(instanceId: InvokerInstanceId, cpu: Int, memory: Int, 
+      cpuUsage: Double, memUsage: Int,
+      controllerSet: Set[String]): ActorRef = {
     logging.info(this, s"registered a new invoker: invoker${instanceId.toInt}")(TransactionId.invokerHealth)
 
     // Grow the underlying status sequence to the size needed to contain the incoming ping. Dummy values are created
@@ -220,7 +228,7 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
       instanceId.toInt + 1,
       // yanqi, for now, consider 0 rsc on unregistered invokers
       i => new InvokerHealth(InvokerInstanceId(i, userMemory = instanceId.userMemory), Offline, 
-        0, 0, Set[String]() ))
+        0, 0, 0.0, 0, Set[String]() ))
     status = status.updated(instanceId.toInt, new InvokerHealth(
       instanceId, Offline, cpu, memory, controllerSet))
 

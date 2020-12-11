@@ -88,7 +88,7 @@
   become: true
 
 - name: create cgroup for harvest vm
-  shell: "cgcreate -g cpu:cgroup_harvest_vm"
+  shell: "cgcreate -g memory,cpu:cgroup_harvest_vm"
   become: true
 
 - name: install docker pre-req

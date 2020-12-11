@@ -91,7 +91,7 @@ abstract class AcknowledegmentMessage(private val tid: TransactionId) extends Me
  * This message is sent from the invoker to the controller, after the slot of an invoker that has been used by the
  * current action, is free again (after log collection)
  */
-// yanqi, add cpu util & execution time & total time (including container creation time) (us) to CompletionMessage
+// yanqi, add cpu util & execution time & total time (including container creation time) (ms) to CompletionMessage
 case class CompletionMessage(override val transid: TransactionId,
                              activationId: ActivationId,
                              isSystemError: Boolean,
@@ -174,6 +174,7 @@ object AcknowledegmentMessage extends DefaultJsonProtocol {
 
 // yanqi, add rsc info to PingMessage, core/cpu number and memory (in MB)
 case class PingMessage(instance: InvokerInstanceId, cpu: Int, memory: Int, 
+    cpuUsage: Double, memUsage: Int,
     controllerSet: Set[String]) extends Message {
   override def serialize = PingMessage.serdes.write(this).compactPrint
 }
@@ -187,7 +188,7 @@ case class PingMessage(instance: InvokerInstanceId, cpu: Int, memory: Int,
 object PingMessage extends DefaultJsonProtocol {
   def parse(msg: String) = Try(serdes.read(msg.parseJson))
   implicit val serdes = jsonFormat(PingMessage.apply _, "name", "cpu", "memory", 
-    "controllerSet")
+    "cpuUsage", "memUsage", "controllerSet")
 }
 // object PingMessage extends DefaultJsonProtocol {
 //   def parse(msg: String) = Try(serdes.read(msg.parseJson))
