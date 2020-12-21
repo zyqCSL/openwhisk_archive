@@ -71,7 +71,7 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
   var prewarmedPool = immutable.Map.empty[ActorRef, ContainerData]
 
   // map fo function cpu utilization, used for cpu admission control
-  var overSubscribedRate: Double = 2.0
+  var overSubscribedRate: Double = 1.0
 
   var availMemory: ByteSize = poolConfig.userMemory
   var availCpu: Double = 10.0
@@ -445,7 +445,7 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
    *
    * @param pool The pool, that has to be checked, if there is enough free memory.
    * @param memory The amount of memory to check.
-   * @param availMemory Total amount of available (unused) memory on this invoker (in mb)
+   * @param freeMemory Total amount of available (unused) memory on this invoker (in mb)
    * @return true, if there is enough space for the given amount of memory.
    */
   def hasPoolSpaceFor[A](pool: Map[A, ContainerData], memory: ByteSize, freeMemory: Int): Boolean = {
@@ -456,7 +456,7 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
    * Calculate if there is enough free memory & cpu on this invoker
    *
    * @param memory The amount of memory to check.
-   * @param cpu utilization (not limit) for the invocation
+   * @param cpu cpu usage (not limit) for the invocation
    * @return true, if there is enough space for the given amount of memory.
    */
   def hasSpaceFor[A](memory: ByteSize, cpuUtil: Double): Boolean = {

@@ -18,10 +18,10 @@ class ActionLoadRecord(
     protected val _initUpdateInterval: Double = initUpdateInterval
     protected val _updateInterval: Double = updateInterval
     
-    protected var prevInvocationTime: Long = 0
+    protected var prevUpdateTime: Long = 0
     protected var initEstimate: Boolean = true
     protected var invocations: Long = 0
-    protected var rpsHistory: Array[Double] = Array.fill(_maxSeries)(0.0)
+    protected var rpsHistory: Array[Double] = Array.fill(_maxHistoryLen)(-1.0)
     protected var historyPointer: Int = 0
     protected var historyLen: Int = 0
 
@@ -41,15 +41,17 @@ class ActionLoadRecord(
         invocations = invocations + 1
         var estimated_rps: Double = -1.0
         var cur_time_ms: Long = System.currentTimeMillis()
-        if(prevInvocationTime == 0)
-            prevInvocationTime = cur_time_ms
-        if(initEstimate && cur_time_ms - prevInvocationTime > initUpdateInterval) {
-            estimated_rps = invocations*1000/(cur_time_ms - prevInvocationTime)
+        if(prevUpdateTime == 0)
+            prevUpdateTime = cur_time_ms
+        if(initEstimate && cur_time_ms - prevUpdateTime > initUpdateInterval) {
+            estimated_rps = invocations*1000/(cur_time_ms - prevUpdateTime)
             initEstimate = false
             _addRpsHistory(estimated_rps)
-        } else if(cur_time_ms - prevInvocationTime > updateInterval) {
-            estimated_rps = invocations*1000/(cur_time_ms - prevInvocationTime)
+            prevUpdateTime = cur_time_ms
+        } else if(cur_time_ms - prevUpdateTime > updateInterval) {
+            estimated_rps = invocations*1000/(cur_time_ms - prevUpdateTime)
             _addRpsHistory(estimated_rps)
+            prevUpdateTime = cur_time_ms
         }
 
         estimated_rps

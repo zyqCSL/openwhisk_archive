@@ -528,7 +528,7 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
       // check if current invoker set has enough capacity to accomodate the function
       // and choose the invoker to use if satisfying invoker exists
       var searchNotDone = true
-      while(stepsDone < numInvokers && researchNotDone) {
+      while(stepsDone < numInvokers && searchNotDone) {
         val this_invoker = invokers(nextIndex)
         val this_invoker_id = this_invoker.id.toInt
         nextIndex = (nextIndex + stepSize) % numInvokers
@@ -584,6 +584,10 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
         }
 
       }
+      // the only reason that nextInvokerSetSize is not updated is that 
+      // resource is insufficient in the entire cluster
+      if(nextInvokerSetSize == 0)
+        nextInvokerSetSize = numInvokers
 
       if(id_unloaded != -1) {
         usedResources(id_unloaded).forceAcquire(reqCpu, reqMemory, maxConcurrent, fqn)

@@ -23,7 +23,7 @@ class ActionInvokerSetState(minShrinkInterval: Long) {
                 _prevShrinkTime = cur_time
                 // return data
                 update = true
-                next_invokers = next_num
+                next_invokers = _numInvokers
                 next_version = _version
             } else if(!is_shrink && next_num > _numInvokers) {
                 // record
@@ -31,7 +31,7 @@ class ActionInvokerSetState(minShrinkInterval: Long) {
                 _version = cur_time
                 // return data
                 update = true
-                next_invokers = next_num
+                next_invokers = _numInvokers
                 next_version = _version
             }
         }

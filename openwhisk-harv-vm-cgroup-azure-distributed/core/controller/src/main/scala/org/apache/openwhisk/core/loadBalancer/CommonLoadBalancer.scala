@@ -120,12 +120,13 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
   
   /* distribution of cpu usage of functions, yanqi*/
   protected[loadBalancer] val functionCpuUtil = TrieMap[FullyQualifiedEntityName, Double]()
-  // distribution is only accessed in dataProcessor
-  protected[loadBalancer] val functionCpuTimeDistr = MMap[FullyQualifiedEntityName, Distribution]()
   // value for docker --cpus limit
   protected[loadBalancer] val functionCpuLimit = TrieMap[FullyQualifiedEntityName, Double]()
   // execution time estimation (in ms)
   protected[loadBalancer] val functionExeTime = TrieMap[FullyQualifiedEntityName, Long]()
+    // distribution is only accessed in dataProcessor
+  protected[loadBalancer] val functionCpuTimeDistr = MMap[FullyQualifiedEntityName, Distribution]()
+
   protected val cpuUtilNumCores: Int = 40
   protected val cpuUtilUpdatBatch: Int = 20
   protected val cpuUtilPercentile: Double = 0.75
@@ -135,8 +136,8 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
   protected val functionSampleRate: Double = 1.0
   protected val functionSampleUseExpectation: Boolean = true
   // protected val cpuUtilWindow:Int = 10
-  protected val redundantRatio: Double = 1.5
-  protected val provisionRatio: Double = 2.0
+  protected val redundantRatio: Double = 1.5  // general over-provision ratio for cpu limit
+  protected val provisionRatio: Double = 2.0  // cpu limit overprovision ratio for the 1st invocation of a function
   protected val randomGen = Random
   protected val maxCpuLimit: Double = 16.0
   protected val minCpuLimit: Double = 1.0

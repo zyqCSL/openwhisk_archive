@@ -141,6 +141,8 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
       if (status(p.instance.toInt).status.isUsable && ( 
           status(p.instance.toInt).cpu != p.cpu || 
           status(p.instance.toInt).memory != p.memory || 
+          status(p.instance.toInt).cpuUsage != p.cpuUsage || 
+          status(p.instance.toInt).memUsage != p.memUsage || 
           status(p.instance.toInt).controllerSet != p.controllerSet)) {
         status = status.updated(p.instance.toInt, 
           new InvokerHealth(p.instance, oldHealth.status, 
@@ -161,6 +163,7 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
         // yanqi, keep previous rsc records
         status = status.updated(instance.toInt, new InvokerHealth(instance, currentState, 
           status(instance.toInt).cpu, status(instance.toInt).memory,
+          status(instance.toInt).cpuUsage, status(instance.toInt).memUsage,
           status(instance.toInt).controllerSet))
       }
       logStatus()
@@ -170,6 +173,7 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
         // yanqi, keep previous rsc records
         status = status.updated(instance.toInt, new InvokerHealth(instance, newState, 
           status(instance.toInt).cpu, status(instance.toInt).memory,
+          status(instance.toInt).cpuUsage, status(instance.toInt).memUsage,
           status(instance.toInt).controllerSet))
       }
       logStatus()
@@ -181,7 +185,7 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
   def logStatus(): Unit = {
     monitor.foreach(_ ! CurrentInvokerPoolState(status))
     // yanqi, add rsc to logs
-    val pretty = status.map(i => s"${i.id.toInt} -> ${i.status} cpu:${i.cpu} memory:${i.memory}MB")
+    val pretty = status.map(i => s"${i.id.toInt} -> ${i.status} cpu:${i.cpu} memory:${i.memory}MB cpuUsage:${i.cpuUsage} memUsage:${i.memUsage}MB")
     logging.info(this, s"invoker status changed to ${pretty.mkString(", ")}")
   }
 
@@ -230,7 +234,7 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
       i => new InvokerHealth(InvokerInstanceId(i, userMemory = instanceId.userMemory), Offline, 
         0, 0, 0.0, 0, Set[String]() ))
     status = status.updated(instanceId.toInt, new InvokerHealth(
-      instanceId, Offline, cpu, memory, controllerSet))
+      instanceId, Offline, cpu, memory, cpuUsage, memUsage, controllerSet))
 
     val ref = childFactory(context, instanceId)
     ref ! SubscribeTransitionCallBack(self) // register for state change events
