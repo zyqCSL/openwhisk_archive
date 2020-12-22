@@ -301,7 +301,7 @@ class HarvestVMContainerPoolBalancer(
       estimatedRps = estimatedRps * clusterSize
 
       var (invokerSetSize: Int, invokerSetVersion: Long) = functionInvokerSet.getOrElse(
-        action.fullyQualifiedName(true), (1, 0))
+        action.fullyQualifiedName(true), (1: Int, 0: Long))
 
       val invoker: Option[(InvokerInstanceId, Boolean, Int)] = HarvestVMContainerPoolBalancer.schedule(
         action.limits.concurrency.maxConcurrent,
