@@ -43,6 +43,8 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 import scala.io.Source
 import java.nio.file.{Paths, Files} // yanqi, check file exists
+// yanqi, needs to be renamed, otherwise conflit with immutable collection
+import scala.collection.mutable.{Map=>MMap}
 
 object InvokerReactive extends InvokerProvider {
 
@@ -91,6 +93,94 @@ class InvokerReactive(
 
   private val logsProvider = SpiLoader.get[LogStoreProvider].instance(actorSystem)
   logging.info(this, s"LogStoreProvider: ${logsProvider.getClass}")
+
+  /***** rsc accounting, yanqi *****/
+  val resourcePath = "/hypervkvp/.kvp_pool_0"
+  val cgroupCpuPath = "/sys/fs/cgroup/cpuacct/cgroup_harvest_vm/cpuacct.usage"
+  val cgroupMemPath = "/sys/fs/cgroup/memory/cgroup_harvest_vm/memory.stat"
+  var cgroupCpuTime: Long = 0   // in ns
+  var cgroupCpuUsage: Double = 0.0 // virtual cpus
+  var cgroupMemUsage: Int = 0 // in mb
+  var cgroupWindowSize: Int = 5
+  // list of (cpu_usage, mem_usage) tuples
+  var cgroupWindow: Array[(Double, Int)] = Array.fill(cgroupWindowSize)((-1.0, -1))
+  var cgroupWindowPtr: Int = 0
+  var cgroupCheckTime: Long = 0 // in ms
+
+  def get_mean_rsc_usage(): (Double, Int) = {
+    var samples: Int = 0
+    var sum_cpu: Double = 0
+    var sum_mem: Int = 0
+    var i: Int = 0
+    while(i < cgroupWindowSize) {
+      if(cgroupWindow(i)._1 >= 0 && cgroupWindow(i)._2 >= 0) {
+        samples = samples + 1
+        sum_cpu = sum_cpu + cgroupWindow(i)._1
+        sum_mem = sum_mem + cgroupWindow(i)._2
+      }
+      i = i + 1
+    }
+    (sum_cpu/samples, sum_mem/samples)
+  }
+
+  def get_max_rsc_usage(): (Double, Int) = {
+    var max_cpu: Double = 0
+    var max_mem: Int = 0
+    var i: Int = 0
+    while(i < cgroupWindowSize) {
+      if(cgroupWindow(i)._1 > max_cpu ) {
+        max_cpu = cgroupWindow(i)._1
+      }
+      if(cgroupWindow(i)._2 > max_mem) {
+        max_mem = cgroupWindow(i)._2
+      }
+      i = i + 1
+    }
+    (max_cpu, max_mem)
+  }
+
+  def proceed_cgroup_window_ptr() {
+    cgroupWindowPtr = cgroupWindowPtr + 1
+    if(cgroupWindowPtr >= cgroupWindowSize) {
+      cgroupWindowPtr = 0
+    }
+  }
+
+  /***** controller accounting. yanqi *****/
+  class SyncIdMap() {
+    var syncMap: MMap[String, Long] = MMap[String, Long]()
+    
+    def update(newId: String) {
+      this.synchronized { syncMap(newId) = System.currentTimeMillis() } }
+    
+    def size(): Int = {
+      this.synchronized { return syncMap.size } }
+    
+    def prune(timeout: Long) {
+      this.synchronized { 
+        var newMap: MMap[String, Long] = MMap[String, Long]()
+        var curTime: Long = System.currentTimeMillis()
+        syncMap.foreach{ keyVal => 
+          if(curTime - keyVal._2 <= timeout) { 
+            newMap(keyVal._1) = keyVal._2
+          } 
+        }
+        syncMap = newMap
+      } 
+    }
+
+    def toSet(): Set[String] = {
+      this.synchronized {
+        var set: Set[String] = Set()
+        syncMap.foreach { keyVal => set = set + keyVal._1}
+        return set
+      }
+    }
+
+  }
+
+  var controllerIdMap = new SyncIdMap()
+  var controllerMapResetInterval: Long = 10*1000 // 10 seconds to ms
 
   /**
    * Factory used by the ContainerProxy to physically create a new container.
@@ -161,7 +251,7 @@ class InvokerReactive(
                                                 userId: UUID,
                                                 isSlotFree: Boolean,
                                                 cpuUtil: Double,
-                                                exeTime: Long,
+                                                exeTime: Long,  // unit is ms
                                                 totalTime: Long) => {
     implicit val transid: TransactionId = tid
 
@@ -234,6 +324,9 @@ class InvokerReactive(
 
         //set trace context to continue tracing
         WhiskTracerProvider.tracer.setTraceContext(transid, msg.traceContext)
+
+        // update controllerIdMap. yanqi
+        controllerIdMap.update(msg.rootControllerIndex.asString)
 
         if (!namespaceBlacklist.isBlacklisted(msg.user)) {
           val start = transid.started(this, LoggingMarkers.INVOKER_ACTIVATION, logLevel = InfoLevel)
@@ -329,24 +422,96 @@ class InvokerReactive(
   }
 
   // yanqi, produce health ping message, here we can piggyback the resource information
-  // currently for test only
+  // plus the gossip information telling each controller how many controllers there are in the system
   private val healthProducer = msgProvider.getProducer(config)
   Scheduler.scheduleWaitAtMost(1.seconds)(() => {
-    var cpu = 1
-    var memory = 2048
+    var cpu: Int = 1
+    var memory: Int = 2048
 
-    if(Files.exists(Paths.get("/hypervkvp/.kvp_pool_0"))) {
-      val buffer = Source.fromFile("/hypervkvp/.kvp_pool_0")
-      val lines = buffer.getLines.toArray
+    controllerIdMap.prune(controllerMapResetInterval)
+    var controller_set: Set[String] = controllerIdMap.toSet()
 
-      if(lines.size == 2) {
-        cpu = lines(0).toInt
-        memory = lines(1).toInt
+    // check total available resources
+    if(Files.exists(Paths.get(resourcePath))) {
+      val buffer_kvp = Source.fromFile(resourcePath)
+      val lines_kvp = buffer_kvp.getLines.toArray
+      
+      if(lines_kvp.size == 2) {
+        cpu = lines_kvp(0).toInt
+        memory = lines_kvp(1).toInt
       }
-      buffer.close
+      buffer_kvp.close
+    }
+
+    var rscFileExists: Boolean = true
+    // check actual cpu usage
+    if(Files.exists(Paths.get(cgroupCpuPath))) {
+      val buffer_cgroup_cpu = Source.fromFile(cgroupCpuPath)
+      val lines_cgroup = buffer_cgroup_cpu.getLines.toArray
+      var cpu_time: Long = 0
+      
+      if(lines_cgroup.size == 1) {
+        cpu_time = lines_cgroup(0).toLong
+      }
+      if(cgroupCheckTime == 0) {
+        cgroupCheckTime = System.nanoTime
+        cgroupCpuTime = cpu_time
+      } else {
+        var curns: Long = System.nanoTime
+        // update
+        cgroupCpuUsage = ((cpu_time - cgroupCpuTime).toDouble / (curns - cgroupCheckTime))
+        cgroupCpuUsage = (cgroupCpuUsage * 1000).toInt/1000.0
+
+        cgroupCheckTime = curns
+        cgroupCpuTime = cpu_time
+      }
+      buffer_cgroup_cpu.close
+    } else {
+      logging.warn(this, s"${cgroupCpuPath} does not exist")
+      rscFileExists = false
+    }
+
+    // check actual memory usage
+    if(Files.exists(Paths.get(cgroupMemPath))) {
+      val buffer_cgroup_mem = Source.fromFile(cgroupMemPath)
+      val lines_cgroup = buffer_cgroup_mem.getLines.toArray
+      var mem_usage: Int = 0  
+
+      var total_cache: Int = 0
+      var total_rss: Int = 0
+
+      for(line <- lines_cgroup) {
+        if(line.contains("total_cache")) {
+          total_cache = line.split(" ")(1).toInt/(1024*1024)
+        } else if(line.contains("total_rss")) {
+          total_rss = line.split(" ")(1).toInt/(1024*1024)
+        }
+      }
+      buffer_cgroup_mem.close
+      cgroupMemUsage = total_cache + total_rss
+    } else {
+      logging.warn(this, s"${cgroupMemPath} does not exist")
+      rscFileExists = false
+    }
+    var mean_cpu_usage: Double = 0.0
+    var mean_mem_usage: Int = 0
+    var max_mem_usage: Int = 0
+    if(rscFileExists) {
+      cgroupWindow(cgroupWindowPtr) = (cgroupCpuUsage, cgroupMemUsage)
+      proceed_cgroup_window_ptr()
+      val (c, m) = get_mean_rsc_usage()
+      mean_cpu_usage = c
+      mean_mem_usage = m
+      val (c_m, m_m) = get_max_rsc_usage()
+      max_mem_usage = m_m
+      logging.info(this, s"healthPing cgroupCpuUsage, cgroupMemUsage = ${cgroupCpuUsage}, ${cgroupMemUsage}")
+      logging.info(this, s"healthPing mean_cgroupCpuUsage, mean_cgroupMemUsage, max_cgroupMemUsage = ${mean_cpu_usage}, ${mean_mem_usage}, ${max_mem_usage}")
     }
     
-    healthProducer.send("health", PingMessage(instance, cpu, memory)).andThen {
+    healthProducer.send("health", PingMessage(
+        instance, cpu, memory, 
+        mean_cpu_usage, max_mem_usage,
+        controller_set)).andThen {
       case Failure(t) => logging.error(this, s"failed to ping the controller: $t")
       // case Success(_) => logging.info(this, s"heartbeat -- cpu: ${cpu}, memory ${memory}, linenum ${lines.size}")
     }

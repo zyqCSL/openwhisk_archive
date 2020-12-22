@@ -118,22 +118,36 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
 
   def receive: Receive = {
     case p: PingMessage =>
-      val invoker = instanceToRef.getOrElse(p.instance.toInt, registerInvoker(p.instance, p.cpu, p.memory))
+      val invoker = instanceToRef.getOrElse(p.instance.toInt, 
+        registerInvoker(p.instance, p.cpu, p.memory, 
+          p.cpuUsage, p.memUsage, 
+          p.controllerSet))
       instanceToRef = instanceToRef.updated(p.instance.toInt, invoker)
 
       // For the case when the invoker was restarted and got a new displayed name
       val oldHealth = status(p.instance.toInt)
       if (oldHealth.id != p.instance) {
         // update rsc records?
-        status = status.updated(p.instance.toInt, new InvokerHealth(p.instance, oldHealth.status, p.cpu, p.memory))
+        status = status.updated(p.instance.toInt, new InvokerHealth(
+          p.instance, oldHealth.status, p.cpu, p.memory, 
+          p.cpuUsage, p.memUsage,
+          p.controllerSet))
         refToInstance = refToInstance.updated(invoker, p.instance)
       }
 
       /**
        * yanqi. Checks if resource allocation has changed. If so, update status and notify controller
        */
-      if (status(p.instance.toInt).status.isUsable && ( status(p.instance.toInt).cpu != p.cpu || status(p.instance.toInt).memory != p.memory )) {
-        status = status.updated(p.instance.toInt, new InvokerHealth(p.instance, oldHealth.status, p.cpu, p.memory))
+      if (status(p.instance.toInt).status.isUsable && ( 
+          status(p.instance.toInt).cpu != p.cpu || 
+          status(p.instance.toInt).memory != p.memory || 
+          status(p.instance.toInt).cpuUsage != p.cpuUsage || 
+          status(p.instance.toInt).memUsage != p.memUsage || 
+          status(p.instance.toInt).controllerSet != p.controllerSet)) {
+        status = status.updated(p.instance.toInt, 
+          new InvokerHealth(p.instance, oldHealth.status, 
+            p.cpu, p.memory, p.cpuUsage, p.memUsage,
+            p.controllerSet))
         logStatus()
       }
       invoker.forward(p)
@@ -147,14 +161,20 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
     case CurrentState(invoker, currentState: InvokerState) =>
       refToInstance.get(invoker).foreach { instance =>
         // yanqi, keep previous rsc records
-        status = status.updated(instance.toInt, new InvokerHealth(instance, currentState, status(instance.toInt).cpu, status(instance.toInt).memory))
+        status = status.updated(instance.toInt, new InvokerHealth(instance, currentState, 
+          status(instance.toInt).cpu, status(instance.toInt).memory,
+          status(instance.toInt).cpuUsage, status(instance.toInt).memUsage,
+          status(instance.toInt).controllerSet))
       }
       logStatus()
 
     case Transition(invoker, oldState: InvokerState, newState: InvokerState) =>
       refToInstance.get(invoker).foreach { instance =>
         // yanqi, keep previous rsc records
-        status = status.updated(instance.toInt, new InvokerHealth(instance, newState, status(instance.toInt).cpu, status(instance.toInt).memory))
+        status = status.updated(instance.toInt, new InvokerHealth(instance, newState, 
+          status(instance.toInt).cpu, status(instance.toInt).memory,
+          status(instance.toInt).cpuUsage, status(instance.toInt).memUsage,
+          status(instance.toInt).controllerSet))
       }
       logStatus()
 
@@ -165,7 +185,7 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
   def logStatus(): Unit = {
     monitor.foreach(_ ! CurrentInvokerPoolState(status))
     // yanqi, add rsc to logs
-    val pretty = status.map(i => s"${i.id.toInt} -> ${i.status} cpu:${i.cpu} memory:${i.memory}MB")
+    val pretty = status.map(i => s"${i.id.toInt} -> ${i.status} cpu:${i.cpu} memory:${i.memory}MB cpuUsage:${i.cpuUsage} memUsage:${i.memUsage}MB")
     logging.info(this, s"invoker status changed to ${pretty.mkString(", ")}")
   }
 
@@ -200,7 +220,9 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
 
   // yanqi, add rsc
   // Register a new invoker
-  def registerInvoker(instanceId: InvokerInstanceId, cpu: Int, memory: Int): ActorRef = {
+  def registerInvoker(instanceId: InvokerInstanceId, cpu: Int, memory: Int, 
+      cpuUsage: Double, memUsage: Int,
+      controllerSet: Set[String]): ActorRef = {
     logging.info(this, s"registered a new invoker: invoker${instanceId.toInt}")(TransactionId.invokerHealth)
 
     // Grow the underlying status sequence to the size needed to contain the incoming ping. Dummy values are created
@@ -209,8 +231,10 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
       status,
       instanceId.toInt + 1,
       // yanqi, for now, consider 0 rsc on unregistered invokers
-      i => new InvokerHealth(InvokerInstanceId(i, userMemory = instanceId.userMemory), Offline, 0, 0))
-    status = status.updated(instanceId.toInt, new InvokerHealth(instanceId, Offline, cpu, memory))
+      i => new InvokerHealth(InvokerInstanceId(i, userMemory = instanceId.userMemory), Offline, 
+        0, 0, 0.0, 0, Set[String]() ))
+    status = status.updated(instanceId.toInt, new InvokerHealth(
+      instanceId, Offline, cpu, memory, cpuUsage, memUsage, controllerSet))
 
     val ref = childFactory(context, instanceId)
     ref ! SubscribeTransitionCallBack(self) // register for state change events

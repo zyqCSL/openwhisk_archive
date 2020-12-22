@@ -207,6 +207,9 @@ class HarvestVMContainerPoolBalancer(
     MetricEmitter.emitGaugeMetric(OFFLINE_INVOKER_BLACKBOX, schedulingState.blackboxInvokers.count(_.status == Offline))
   }
 
+  val maxCpuUtil: Double = 0.9
+  val maxMemUtil: Double = 0.9
+
   /** State needed for scheduling. */
   val schedulingState = HarvestVMContainerPoolBalancerState()(lbConfig)
 
@@ -260,6 +263,8 @@ class HarvestVMContainerPoolBalancer(
   /** 1. Publish a message to the loadbalancer */
   override def publish(action: ExecutableWhiskActionMetaData, msg: ActivationMessage)(
     implicit transid: TransactionId): Future[Future[Either[ActivationId, WhiskActivation]]] = {
+    // update load record, yanqi
+    loadProcessor ! LoadSample(action.fullyQualifiedName(true))
 
     val isBlackboxInvocation = action.exec.pull
     val actionType = if (!isBlackboxInvocation) "managed" else "blackbox"
@@ -282,36 +287,44 @@ class HarvestVMContainerPoolBalancer(
         updateCpuLimit = true
       }
       msg.cpuLimit = cpuLimit
-
       if(cpuUtil <= 0.0)
         cpuUtil = 1.0  // assume each activation uses 1 cpu without profiling info
       msg.cpuUtil = cpuUtil
 
-      // val invoker: Option[(InvokerInstanceId, Boolean)] = HarvestVMContainerPoolBalancer.schedule(
-      //   action.limits.concurrency.maxConcurrent,
-      //   action.fullyQualifiedName(true),
-      //   invokersToUse,
-      //   schedulingState.usedResources,
-      //   // action.limits.cpu.cores,
-      //   cpuUtil, // replace with estimation
-      //   action.limits.memory.megabytes,
-      //   homeInvoker,
-      //   stepSize,
-      //   schedulingState.clusterSize)
+      // exeTime (from ms to s)
+      var estimatedExeTimeMs: Long = functionExeTime.getOrElse(action.fullyQualifiedName(true), 1)
+      // exeTime estimation (unit is s)
+      var estimatedExeTime: Double = estimatedExeTimeMs / 1000.0
 
-      val invoker: Option[(InvokerInstanceId, Boolean)] = HarvestVMContainerPoolBalancer.schedule(
+      // rps estimation
+      var estimatedRps: Double = functionLoad.getOrElse(action.fullyQualifiedName(true), 0.0)
+      estimatedRps = estimatedRps * clusterSize
+
+      var (invokerSetSize: Int, invokerSetVersion: Long) = functionInvokerSet.getOrElse(
+        action.fullyQualifiedName(true), (1, 0))
+
+      val invoker: Option[(InvokerInstanceId, Boolean, Int)] = HarvestVMContainerPoolBalancer.schedule(
         action.limits.concurrency.maxConcurrent,
         action.fullyQualifiedName(true),
         invokersToUse,
         schedulingState.usedResources,
-        // action.limits.cpu.cores,
-        cpuUtil, // replace with estimation
-        cpuLimit, // used to check if an invoker can hold the container of the function
+        cpuUtil,
+        cpuLimit,
         action.limits.memory.megabytes,
-        schedulingState.clusterSize)
+        estimatedExeTime,
+        maxCpuUtil,
+        maxMemUtil,
+        estimatedRps,
+        homeInvoker,
+        stepSize,
+        invokerSetSize)
 
+      var nextInvokerSetSize: Int = 0
       invoker.foreach {
-        case (_, true) =>
+        case (_, false, next_invoker_set) =>
+          nextInvokerSetSize = next_invoker_set
+        case (_, true, next_invoker_set) =>
+          nextInvokerSetSize = next_invoker_set
           val metric =
             if (isBlackboxInvocation)
               LoggingMarkers.BLACKBOX_SYSTEM_OVERLOAD
@@ -320,6 +333,14 @@ class HarvestVMContainerPoolBalancer(
           MetricEmitter.emitCounterMetric(metric)
         case _ =>
       }
+
+      // update invoker set size
+      if(nextInvokerSetSize > 0) {
+        var isShrink: Boolean = nextInvokerSetSize < invokerSetSize
+        invokerSetProcessor ! InvokerSetChangeRequest(action.fullyQualifiedName(true),
+          isShrink, nextInvokerSetSize, invokerSetVersion)
+      }
+
       invoker.map(_._1)
     } else {
       None
@@ -431,107 +452,8 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
       } else primes
     })
 
-
-  // /**
-  //  * Scans through all invokers and searches for an invoker tries to get a free slot on an invoker. If no slot can be
-  //  * obtained, randomly picks a healthy invoker.
-  //  *
-  //  * @param maxConcurrent concurrency limit supported by this action
-  //  * @param invokers a list of available invokers to search in, including their state
-  //  * @param usedResources record of resource usage of inflight invocations
-  //  * @param reqMemory amount of memory that need to be acquired (e.g. memory in MB)
-  //  * @param reqCpu nubmer of cores that need to be acquired
-  //  * @param index the index to start from (initially should be the "homeInvoker"
-  //  * @param step stable identifier of the entity to be scheduled
-  //  * @param clusterSize number of controllers in the system
-  //  * @return an invoker to schedule to or None of no invoker is available
-  //  */
-  // @tailrec
-  // def schedule(
-  //   maxConcurrent: Int,
-  //   fqn: FullyQualifiedEntityName,
-  //   invokers: IndexedSeq[InvokerHealth],
-  //   usedResources: Map[Int, InvokerResourceUsage],
-  //   reqCpu: Double,
-  //   reqMemory: Int,
-  //   index: Int,
-  //   step: Int,
-  //   clusterSize: Int,
-  //   stepsDone: Int = 0)(implicit logging: Logging, transId: TransactionId): Option[(InvokerInstanceId, Boolean)] = {
-  //   val numInvokers = invokers.size
-
-  //   if (numInvokers > 0) {
-  //     val invoker = invokers(index)
-  //     val invoker_id = invoker.id.toInt
-  //     //test this invoker
-  //     // Attention: cannot use index to access usedResources directly!!!
-  //     if (invoker.status.isUsable && usedResources(invoker_id).acquire(invoker.cpu.toDouble/clusterSize, invoker.memory/clusterSize, reqCpu, reqMemory, maxConcurrent, fqn)) {
-  //       // yanqi, log rsc info for debugging
-  //       logging.info(
-  //         this,
-  //         s"check invoker id: ${invoker.id.toInt} cpu: ${invoker.cpu}, memory '${invoker.memory}'")
-  //       Some(invoker.id, false)
-  //     } else {
-  //       // If we've gone through all invokers
-  //       // choose the one doesn't need more resource with most resources available
-  //       if (stepsDone == numInvokers + 1) {
-  //         var id_running_container: Int = -1 // the invoker that already has a running container for the function
-  //         var id_most_rsc_left: Int = -1     // the invoker that has most resources left
-  //         var most_left_rsc: Double = 0.0
-  //         // yanqi, first try to find an unloaded invoker, otherwise the least loaded one
-  //         // val start_time = System.nanoTime
-  //         breakable {
-  //           for(i <- 0 to invokers.size - 1) {
-  //             val this_invoker = invokers(i)
-  //             val this_invoker_id = this_invoker.id.toInt
-  //             if(this_invoker.status.isUsable) {
-  //               val (leftcpu, leftmem, nomorersc) = usedResources(this_invoker_id).reportAvailResources(this_invoker.cpu.toDouble/clusterSize, this_invoker.memory/clusterSize, maxConcurrent, fqn)
-                
-  //               val this_id = this_invoker.id
-  //               logging.warn(this, s"check invoker${this_id.toInt} leftcpu ${leftcpu} leftmem ${leftmem}")
-
-  //               val leftrsc = leftcpu*1.0 + leftmem*0.0
-  //               if(nomorersc) {
-  //                 // of there is one invoker that has matching container with capacity, return directly
-  //                 id_running_container = this_invoker_id
-  //                 // logging.warn(this, s"system is overloaded. Chose invoker${this_invoker.id.toInt} which has running container with available capacity for the function.")
-  //                 // return Some(this_invoker.id, true)
-  //                 break
-  //               } else if(i == 0 || leftrsc > most_left_rsc) {
-  //                 most_left_rsc = leftrsc
-  //                 id_most_rsc_left = this_invoker_id
-  //               }
-  //             }
-  //           }
-  //         }
-  //         // val duration = (System.nanoTime - start_time) / 1e6d    // ms
-  //         // logging.warn(this, s"system overloaded complete check time = ${duration} ms.")
-
-  //         if(id_running_container != -1) {
-  //           val chosen_id = invokers(id_running_container).id
-  //           usedResources(id_running_container).forceAcquire(reqCpu, reqMemory, maxConcurrent, fqn)
-  //           logging.warn(this, s"system is overloaded. Chose invoker${chosen_id.toInt} which has running container with available capacity for the function.")
-  //           Some(chosen_id, true)
-  //         } else if(id_most_rsc_left == -1) {
-  //           // no healthy invokers left
-  //           logging.warn(this, s"system is overloaded. No healthy invoker in system.")
-  //           None
-  //         } else {
-  //           val chosen_id = invokers(id_most_rsc_left).id
-  //           usedResources(id_most_rsc_left).forceAcquire(reqCpu, reqMemory, maxConcurrent, fqn)
-  //           logging.warn(this, s"system is overloaded. Chose invoker${chosen_id.toInt} which has most resources left: ${most_left_rsc}.")
-  //           Some(chosen_id, true)
-  //         }
-  //       } else {
-  //         val newIndex = (index + step) % numInvokers
-  //         // schedule(maxConcurrent, fqn, invokers, dispatched, slots, newIndex, step, stepsDone + 1)
-  //         schedule(maxConcurrent, fqn, invokers, usedResources, reqCpu, reqMemory, newIndex, step, clusterSize, stepsDone + 1)
-  //       }
-  //     }
-  //   } else {
-  //     None
-  //   }
-  // }
+  protected val cpuCoeff: Double = 3.0
+  protected val memCoeff: Double = 1.0
 
   /**
    * Scans through all invokers and searches for an invoker tries to get a free slot on an invoker. If no slot can be
@@ -540,12 +462,17 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
    * @param maxConcurrent concurrency limit supported by this action
    * @param invokers a list of available invokers to search in, including their state
    * @param usedResources record of resource usage of inflight invocations
+   * @param reqCpu nubmer of cores that need to be acquired (average cpu usage)
+   * @param cpuLimit max allowed cpu usage (hard limit of containers)
+   * @param exeTime mean execution time of the function, in seconds
+   * @param maxCpuUtil max allowed cpu utilization of each invoker
+   * @param maxMemUtil max allowed mem utilization of each invoker
    * @param reqMemory amount of memory that need to be acquired (e.g. memory in MB)
-   * @param reqCpu nubmer of cores that need to be acquired
-   * @param index the index to start from (initially should be the "homeInvoker"
-   * @param step stable identifier of the entity to be scheduled
-   * @param clusterSize number of controllers in the system
-   * @return an invoker to schedule to or None of no invoker is available
+   * @param rps estimated request per seconds of the entire cluster
+   * @param homeInvoker the index to start from (initially should be the "homeInvoker"
+   * @param stepSize the step size used to compose invoker set
+   * @param invokerSetSzie number of invokers in the invoker set of this function
+   * @return an invoker to schedule to or None of no invoker is available, and recommended invoker set size
    */
   def schedule(
     maxConcurrent: Int,
@@ -555,49 +482,86 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
     reqCpu: Double,
     cpuLimit: Double,
     reqMemory: Int,
-    clusterSize: Int)(implicit logging: Logging, transId: TransactionId): Option[(InvokerInstanceId, Boolean)] = {
+    exeTime: Double,
+    maxCpuUtil: Double,
+    maxMemUtil: Double,
+    rps: Double,
+    homeInvoker: Int,
+    stepSize: Int,
+    invokerSetSize: Int)(implicit logging: Logging, transId: TransactionId): Option[(InvokerInstanceId, Boolean, Int)] = {
     val numInvokers = invokers.size
 
     if (numInvokers > 0) {
-      // in case the system is not overloaded, choose the invoker that has enough capacity in terms of both cpu & memory
+      /**** prepare return data structures ****/
+      // when the system is not overloaded
+      // choose the invoker that has enough capacity in terms of both cpu & memory
       var id_unloaded: Int = -1
       var invoker_id_unloaded: InvokerInstanceId = InvokerInstanceId(instance = -1, 
                                                                      uniqueName = Some("fake_ul"), 
                                                                      displayedName = Some("fake_ul"), 
                                                                      userMemory = ByteSize(0, SizeUnits.BYTE))
-      var unloaded_cpu_left: Double = 0.0
-      var unloaded_mem_left: Int = 0
+      // used to choose the least loaded invoker
       var unloaded_score: Double = 0.0  // scored rsc (weighted sum of rsc and memory)
 
       // in case the sytem is overloaded, choose the invoker that is least loaded after receiving this function
       // (for functions with > 1 max concurrency)
       var id_loaded: Int = -1
       var invoker_id_loaded: InvokerInstanceId = InvokerInstanceId(instance = -2, 
-                                                                     uniqueName = Some("fake_l"), 
-                                                                     displayedName = Some("fake_l"), 
-                                                                     userMemory = ByteSize(0, SizeUnits.BYTE))
-      var loaded_cpu_left: Double = 0.0
-      var loaded_mem_left: Int = 0
+                                                                   uniqueName = Some("fake_l"), 
+                                                                   displayedName = Some("fake_l"), 
+                                                                   userMemory = ByteSize(0, SizeUnits.BYTE))
+      // used to choose the least loaded invoker
       var loaded_score: Double = 0.0  // scored rsc (weighted sum of rsc and memory)
 
-      // make sure that invoker's total rsc (cpu) must be greater than container's total resource
-      for(i <- 0 to invokers.size - 1) {
-        val this_invoker = invokers(i)
-        val this_invoker_id = this_invoker.id.toInt
-        // if(this_invoker.status.isUsable && this_invoker.cpu.toDouble >= cpuLimit) {
-        if(this_invoker.status.isUsable) {
-          val (leftcpu, leftmem, score) = usedResources(this_invoker_id).reportLeftResources(this_invoker.cpu.toDouble/clusterSize, this_invoker.memory/clusterSize, reqCpu, reqMemory, maxConcurrent, fqn)
-                
-          logging.warn(this, s"check invoker${this_invoker_id} leftcpu ${leftcpu} leftmem ${leftmem} score ${score}")
+      // for logging
+      var chosen_invoker_avail_cpus: Double = 0.0
+      var chosen_invoker_avail_mem: Int = 0
 
-          if(leftcpu >= 0 && leftmem >= 0) {
-            // invoker not overloaded
+      // estimate if current invoker set is enough to accomodate these functions
+      var stepsDone: Int = 0  // number of steps made from homeInvoker
+      var nextIndex: Int = homeInvoker  // index of next invoker to check
+      var totalRequiredCpu: Double = rps * exeTime * reqCpu
+      var totalRequiredMem: Int = (rps * exeTime * reqMemory).toInt
+      var invokerSetAvailCpu: Double = 0  // virutal cpus
+      var invokerSetAvailMem: Int = 0   // in mb
+      var invokerSatisfied: Boolean = false   // if at least 1 invoker has both enough cpu & mem to accomodate the new function
+      var currInvokerSetSize: Int = invokerSetSize
+      var nextInvokerSetSize: Int = 0   // recommended invoker set size based on current load
+      if(invokerSetSize > numInvokers) {
+        logging.warn(this, s"InvokerSetSize ${invokerSetSize} exceeded #invokers ${numInvokers}")
+        currInvokerSetSize = numInvokers
+      } else if(invokerSetSize == 0) {
+        logging.warn(this, s"InvokerSetSize = 0")
+        currInvokerSetSize = 1
+      }                                                             
+      // check if current invoker set has enough capacity to accomodate the function
+      // and choose the invoker to use if satisfying invoker exists
+      var searchNotDone = true
+      while(stepsDone < numInvokers && searchNotDone) {
+        val this_invoker = invokers(nextIndex)
+        val this_invoker_id = this_invoker.id.toInt
+        nextIndex = (nextIndex + stepSize) % numInvokers
+        
+        if(this_invoker.status.isUsable) {
+          // val (leftcpu, leftmem, score) = usedResources(this_invoker_id).reportLeftResources(
+          //  this_invoker.cpu.toDouble/clusterSize, 
+          //  this_invoker.memory/clusterSize, reqCpu, reqMemory, maxConcurrent, fqn)
+          val (avail_cpu: Double, 
+               avail_mem: Int, 
+               score: Double) = this_invoker.getAvailResources(
+            maxCpuUtil, maxMemUtil, cpuCoeff, memCoeff)
+          logging.warn(this, s"check invoker${this_invoker_id} availCpu ${avail_cpu} availMem ${avail_mem} score ${score}")
+
+          if(avail_cpu >= reqCpu && avail_mem >= reqMemory && this_invoker.cpu > cpuLimit) {
+            invokerSetAvailCpu = invokerSetAvailCpu + max(avail_cpu, 0)
+            invokerSetAvailMem = invokerSetAvailMem + max(avail_mem, 0)
             if(id_unloaded < 0 || unloaded_score > score) {
               id_unloaded = this_invoker_id
               invoker_id_unloaded = this_invoker.id
               unloaded_score = score
-              unloaded_cpu_left = leftcpu
-              unloaded_mem_left = leftmem
+              // for logging
+              chosen_invoker_avail_cpus = avail_cpu
+              chosen_invoker_avail_mem = avail_mem
             }
           } else if(id_unloaded < 0) {
             // invoker overloaded, record score if no invoker is known to be underloaded
@@ -605,27 +569,53 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
               id_loaded = this_invoker_id
               invoker_id_loaded = this_invoker.id
               loaded_score = score
-              loaded_cpu_left = leftcpu
-              loaded_mem_left = leftmem
+              // for logging
+              chosen_invoker_avail_cpus = avail_cpu
+              chosen_invoker_avail_mem = avail_mem
             }
           }
         }
+
+        // move the step no matter the invoker is usable or not
+        stepsDone = stepsDone + 1
+
+        /**** 
+         * search stops if
+         * 1) resources are adequate & all invokers in the current set are searched,
+         * invoker set size changed to minimal set that has the available resources
+         * 2) resource are adequate after adding new invokers to the set, 
+         * invoker set size changed to increased set size
+         * 3) all invokers are searched (handled by the condition in the top while loop)
+         *****/
+        if(id_unloaded >= 0 && invokerSetAvailCpu >= totalRequiredCpu && invokerSetAvailMem >= totalRequiredMem) {
+          // resources are adequate, update nextInvokerSetSize
+          if(nextInvokerSetSize == 0) {
+            // only update next invoker set once (the smallest set possible)
+            // use stepsDone directly since it is already incremented
+            nextInvokerSetSize = math.min(stepsDone, numInvokers)
+          }
+          if(stepsDone >= currInvokerSetSize)
+            searchNotDone = false
+        }
+
       }
-      // val duration = (System.nanoTime - start_time) / 1e6d    // ms
-      // logging.warn(this, s"system overloaded complete check time = ${duration} ms.")
+      // the only reason that nextInvokerSetSize is not updated is that 
+      // resource is insufficient in the entire cluster
+      if(nextInvokerSetSize == 0)
+        nextInvokerSetSize = numInvokers
 
       if(id_unloaded != -1) {
         usedResources(id_unloaded).forceAcquire(reqCpu, reqMemory, maxConcurrent, fqn)
-        logging.warn(this, s"system underloaded. Choose invoker ${id_unloaded} (${invoker_id_unloaded.toInt}) leftcpu ${unloaded_cpu_left} leftmem ${unloaded_mem_left} score ${unloaded_score}.")
-        Some(invoker_id_unloaded, false)
+        logging.warn(this, s"system underloaded. Choose invoker ${id_unloaded} (${invoker_id_unloaded.toInt}) leftcpu ${chosen_invoker_avail_cpus} leftmem ${chosen_invoker_avail_mem} score ${unloaded_score}.")
+        Some(invoker_id_unloaded, false, nextInvokerSetSize)
       } else if(id_loaded == -1) {
         // no healthy invokers left
         logging.warn(this, s"system is overloaded. No healthy invoker in system.")
         None
       } else {
         usedResources(id_loaded).forceAcquire(reqCpu, reqMemory, maxConcurrent, fqn)
-        logging.warn(this, s"system is overloaded. Choose invoker ${id_loaded} (${invoker_id_loaded.toInt}) leftcpu ${loaded_cpu_left} leftmem ${loaded_mem_left} score ${loaded_score}.")
-        Some(invoker_id_loaded, true)
+        logging.warn(this, s"system is overloaded. Choose invoker ${id_loaded} (${invoker_id_loaded.toInt}) leftcpu ${chosen_invoker_avail_cpus} leftmem ${chosen_invoker_avail_mem} score ${loaded_score}.")
+        Some(invoker_id_loaded, true, nextInvokerSetSize)
       }
       
     } else {
@@ -679,7 +669,8 @@ class ConcurrencySlot(val maxConcurrent: Int) {
   }
 }
 
-class InvokerResourceUsage(var _cpu: Double, var _memory: Int, var _id: Int, var _cpu_coeff: Double, var _mem_coeff: Double)(implicit logging: Logging) {
+class InvokerResourceUsage(var _cpu: Double, var _memory: Int, 
+    var _id: Int, var _cpu_coeff: Double, var _mem_coeff: Double)(implicit logging: Logging) {
   protected var cpu: Double = _cpu
   protected var memory: Int = _memory
   protected val id: Int = _id
@@ -827,6 +818,36 @@ class InvokerResourceUsage(var _cpu: Double, var _memory: Int, var _id: Int, var
 
 }
 
+// default timeout of invoker set to 10s
+class SyncControllerState(val _timeout: Long = 10*1000) {
+  private var controllerGossipTime: MMap[String, Long] = MMap.empty[String, Long]
+
+  def clusterSize: Int = {
+    this.synchronized { return math.max(controllerGossipTime.size, 1) }
+  }
+
+  def update(controllerSet: Set[String]) {
+    this.synchronized {
+      controllerSet.foreach { x =>
+        controllerGossipTime(x) = System.currentTimeMillis()
+      }
+    }
+  }
+
+  def prune() {
+    val curTime = System.currentTimeMillis()
+    this.synchronized {
+      var newMap: MMap[String, Long] = MMap.empty[String, Long]
+      controllerGossipTime.foreach{ keyVal => 
+        if(curTime - keyVal._2 <= _timeout) { 
+            newMap(keyVal._1) = keyVal._2
+        } 
+      }
+      controllerGossipTime = newMap
+    }
+  }
+}
+
 /**
  * Holds the state necessary for scheduling of actions.
  *
@@ -850,6 +871,7 @@ case class HarvestVMContainerPoolBalancerState(
   // for scoring nodes
   protected val _cpuCoeff: Double = 3.0,
   protected val _memCoeff: Double = 1.0,
+  protected val _clusterResetInterval: Long = 10 * 1000,  // 10s (to ms)
   private var _clusterSize: Int = 1)(
   lbConfig: HarvestVMContainerPoolBalancerConfig =
     loadConfigOrThrow[HarvestVMContainerPoolBalancerConfig](ConfigKeys.loadbalancer))(implicit logging: Logging) {
@@ -873,14 +895,19 @@ case class HarvestVMContainerPoolBalancerState(
   def blackboxStepSizes: Seq[Int] = _blackboxStepSizes
   // def invokerSlots: IndexedSeq[NestedSemaphore[FullyQualifiedEntityName]] = _invokerSlots
   def usedResources: Map[Int, InvokerResourceUsage] = _usedResources
-  def clusterSize: Int = _clusterSize
+  // def clusterSize: Int = _clusterSize
+
+  // keep states of active peer load controllers
+  private var controllerState: SyncControllerState  = new SyncControllerState()
+
+  def clusterSize: Int = controllerState.clusterSize
 
   /**
    * @param memory
    * @return calculated invoker slot
    */
   private def getInvokerSlot(memory: ByteSize): ByteSize = {
-    val invokerShardMemorySize = memory / _clusterSize
+    val invokerShardMemorySize = memory / clusterSize
     val newTreshold = if (invokerShardMemorySize < MemoryLimit.MIN_MEMORY) {
       logging.error(
         this,
@@ -918,6 +945,12 @@ case class HarvestVMContainerPoolBalancerState(
     _invokers = newInvokers
     _managedInvokers = _invokers.take(managed)
     _blackboxInvokers = _invokers.takeRight(blackboxes)
+
+    // todo: update controller state here
+    for(i <- _invokers) {
+      controllerState.update(i.controllerSet)
+    }
+    controllerState.prune()
 
     val logDetail = if (oldSize != newSize) {
       _managedStepSizes = HarvestVMContainerPoolBalancer.pairwiseCoprimeNumbersUntil(managed)

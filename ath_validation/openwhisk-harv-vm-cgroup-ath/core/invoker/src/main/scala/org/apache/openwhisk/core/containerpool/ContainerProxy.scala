@@ -54,8 +54,9 @@ case object Removing extends ContainerState
 // yanqi, add cpuUtil & cpuLimit for all ContainerData class (cpuUtil is for admission control)
 // Data
 /** Base data type */
-sealed abstract class ContainerData(val lastUsed: Instant, var cpuLimit: Double, var cpuUtil: Double, val memoryLimit: ByteSize, val activeActivationCount: Int) {
-
+sealed abstract class ContainerData(val lastUsed: Instant, 
+                                    var cpuLimit: Double, var cpuUtil: Double, val memoryLimit: ByteSize, 
+                                    val activeActivationCount: Int) {
   /** When ContainerProxy in this state is scheduled, it may result in a new state (ContainerData)*/
   def nextRun(r: Run): ContainerData
 
@@ -64,6 +65,9 @@ sealed abstract class ContainerData(val lastUsed: Instant, var cpuLimit: Double,
    *  Useful for cases where all ContainerData instances are handled, vs cases where only ContainerStarted
    *  instances are handled */
   def getContainer: Option[Container]
+
+  // yanqi, used for reading rsc usage from cgroup
+  def getContainerId: String = ""
 
   /** String to indicate the state of this container after scheduling */
   val initingState: String
@@ -88,6 +92,9 @@ sealed abstract class ContainerStarted(val container: Container,
                                        override val activeActivationCount: Int)
     extends ContainerData(lastUsed, 0, 0, memoryLimit, activeActivationCount) {
   override def getContainer = Some(container)
+    
+  // yanqi, get actual mem usage from cgroup
+  override def getContainerId = container.containerId.asString
 }
 
 /** trait representing a container that is in use and (potentially) usable by subsequent or concurrent activations */
@@ -677,11 +684,11 @@ class ContainerProxy(
                 .map(i => Interval(runInterval.start.minusMillis(i.duration.toMillis), runInterval.end))
                 .getOrElse(runInterval)
               cpuUtil = cpu_util  // yanqi, update cpuUtil
-              exeTime = runInterval.duration.toMicros // yanqi, update execution time
+              exeTime = runInterval.duration.toMillis // yanqi, update execution time
               if (job.startInstant.isEmpty) {
                 totalTime = exeTime
               } else {
-                totalTime = Duration.create(runInterval.end.toEpochMilli - job.startInstant.get.toEpochMilli, MILLISECONDS).toMicros
+                totalTime = Duration.create(runInterval.end.toEpochMilli - job.startInstant.get.toEpochMilli, MILLISECONDS).toMillis
               }
 
               ContainerProxy.constructWhiskActivation(

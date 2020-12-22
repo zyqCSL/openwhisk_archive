@@ -67,26 +67,82 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
   protected val totalActivations = new LongAdder()
   protected val totalBlackBoxActivationMemory = new LongAdder()
   protected val totalManagedActivationMemory = new LongAdder()
+  
+  /* states related to load estimation, yanqi*/
+  // keeps the estimated load of next epoch
+  protected[loadBalancer] val functionLoad = TrieMap[FullyQualifiedEntityName, Double]()
+  // keeps the data structure used to estimate load of each function
+  // only accessed in loadProcessor
+  protected[loadBalancer] val functionLoadRecords = MMap[FullyQualifiedEntityName, ActionLoadRecord]()
+  protected val loadMaxHistoryLen: Int = 10
+  protected val loadInitUpdateInterval: Double = 10.0  // seconds
+  protected val loadUpdateInterval: Double = 60.0     // seconds
+  case class LoadSample(actionId: FullyQualifiedEntityName)
+  // use another process for updating load records
+  private[loadBalancer] val loadProcessor = actorSystem.actorOf(Props(new Actor {
+    override def receive: Receive = {
+      case sample: LoadSample =>
+        // logging.info(this, s"In CommonLoadBalancer dataProcessor") 
+        val estimated_rps = functionLoadRecords.getOrElseUpdate(sample.actionId, 
+                new ActionLoadRecord(loadMaxHistoryLen, loadInitUpdateInterval, loadUpdateInterval))
+                .addInvocation()
+        // logging.info(this, s"loadProcessor record set up") 
+        if(estimated_rps >= 0)
+          functionLoad.update(sample.actionId, estimated_rps)
+        // logging.info(this, s"loadProcessor functionLoad updated") 
+    }
+  }))
 
+  /* states related to invoker set of each function, yanqi*/
+  // keeps the (num_invokers, version_num) for each function
+  protected[loadBalancer] val functionInvokerSet = TrieMap[FullyQualifiedEntityName, (Int, Long)]()
+  // keeps the data structure used to estimate load of each function
+  // only accessed in loadProcessor
+  protected[loadBalancer] val functionInvokerSetState = MMap[FullyQualifiedEntityName, ActionInvokerSetState]()
+  protected val invokerSetMinShrinkInterval: Long = 60 * 1000 // in ms
+  case class InvokerSetChangeRequest(actionId: FullyQualifiedEntityName,
+    isShrink: Boolean, numInvokers: Int, version: Long)
+  // use another process for updating load records
+  private[loadBalancer] val invokerSetProcessor = actorSystem.actorOf(Props(new Actor {
+    override def receive: Receive = {
+      case req: InvokerSetChangeRequest =>
+
+        // logging.info(this, s"In CommonLoadBalancer dataProcessor") 
+        val (update, num_invokers, new_version) = functionInvokerSetState.getOrElseUpdate(req.actionId, 
+                new ActionInvokerSetState(invokerSetMinShrinkInterval))
+                .updateNumInvokers(req.numInvokers, req.isShrink, req.version)
+        // logging.info(this, s"loadProcessor record set up") 
+        if(update)
+          functionInvokerSet.update(req.actionId, (num_invokers, new_version))
+        // logging.info(this, s"loadProcessor functionLoad updated") 
+    }
+  }))
+  
   /* distribution of cpu usage of functions, yanqi*/
   protected[loadBalancer] val functionCpuUtil = TrieMap[FullyQualifiedEntityName, Double]()
-  // distribution is only accessed in dataProcessor
-  protected[loadBalancer] val functionCpuUtilDistr = MMap[FullyQualifiedEntityName, Distribution]()
   // value for docker --cpus limit
   protected[loadBalancer] val functionCpuLimit = TrieMap[FullyQualifiedEntityName, Double]()
-  protected val cpuUtilNumCores:Int = 40
-  protected val cpuUtilUpdatBatch:Int = 20
+  // execution time estimation (in ms)
+  protected[loadBalancer] val functionExeTime = TrieMap[FullyQualifiedEntityName, Long]()
+    // distribution is only accessed in dataProcessor
+  protected[loadBalancer] val functionCpuTimeDistr = MMap[FullyQualifiedEntityName, Distribution]()
+
+  protected val cpuUtilNumCores: Int = 40
+  protected val cpuUtilUpdatBatch: Int = 20
   protected val cpuUtilPercentile: Double = 0.75
   protected val cpuLimitPercentile: Double = 0.99
+  protected val exeTimePercentile: Double = 0.75
+  protected val functionMaxTime: Long = 10*60*1000 // 10 min transformed to unit of ms
   protected val functionSampleRate: Double = 1.0
   protected val functionSampleUseExpectation: Boolean = true
   // protected val cpuUtilWindow:Int = 10
-  protected val redundantRatio: Double = 1.5
-  protected val provisionRatio: Double = 2.0
+  protected val redundantRatio: Double = 1.5  // general over-provision ratio for cpu limit
+  protected val provisionRatio: Double = 2.0  // cpu limit overprovision ratio for the 1st invocation of a function
   protected val randomGen = Random
-  protected val maxCpuLimit: Double = 40.0
+  protected val maxCpuLimit: Double = 16.0
   protected val minCpuLimit: Double = 1.0
 
+  // exeTime and totalTime unit is ms
   case class InvocationSample(actionId: FullyQualifiedEntityName, cpuUtil: Double, 
     exeTime: Long, totalTime:Long, updateCpuLimit: Boolean)
   // use another process for proecssing data wrt function cpu util distribution
@@ -94,13 +150,17 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
     override def receive: Receive = {
       case sample: InvocationSample =>
         // logging.info(this, s"In CommonLoadBalancer dataProcessor") 
-        val (estimated_cpu, cpu_limit) = functionCpuUtilDistr.getOrElseUpdate(sample.actionId, 
+        val (estimated_cpu, cpu_limit, estimated_time) = functionCpuTimeDistr.getOrElseUpdate(sample.actionId, 
                 // new Distribution(cpuUtilNumCores, cpuUtilUpdatBatch, cpuUtilPercentile, cpuLimitPercentile, cpuUtilWindow))
-                new Distribution(cpuUtilNumCores, cpuUtilUpdatBatch, cpuUtilPercentile, cpuLimitPercentile))
+                new Distribution(cpuUtilNumCores, functionMaxTime, 
+                  cpuUtilUpdatBatch, cpuUtilPercentile, cpuLimitPercentile,
+                  exeTimePercentile))
                 .addSample(sample.cpuUtil, sample.exeTime, functionSampleUseExpectation)
         // logging.info(this, s"dataProcessor distribution set up") 
         if(estimated_cpu > 0)
           functionCpuUtil.update(sample.actionId, estimated_cpu)
+        if(estimated_time > 0)
+          functionExeTime.update(sample.actionId, estimated_time)
         // logging.info(this, s"dataProcessor functionCpuUtil updated") 
         val estimated_limit = math.max(minCpuLimit, math.min(maxCpuLimit, math.ceil(cpu_limit * redundantRatio)))
         if(sample.updateCpuLimit) {
@@ -323,6 +383,7 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
 
   /** 6. Process the completion ack and update the state */
   // yanqi, add cpu util & execution time & total time (including cold start)
+  // exeTime & totalTime unit is us
   protected[loadBalancer] def processCompletion(aid: ActivationId,
                                                 tid: TransactionId,
                                                 forced: Boolean,

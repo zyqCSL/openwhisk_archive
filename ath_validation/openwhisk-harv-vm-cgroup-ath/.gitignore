@@ -27,6 +27,7 @@ bin/
 .classpath
 .cache-main
 .cache-tests
+.metals
 
 # Linux
 *~
