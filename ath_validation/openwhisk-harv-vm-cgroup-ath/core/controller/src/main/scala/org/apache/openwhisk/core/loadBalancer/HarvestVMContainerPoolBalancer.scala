@@ -292,7 +292,7 @@ class HarvestVMContainerPoolBalancer(
       msg.cpuUtil = cpuUtil
 
       // exeTime (from ms to s)
-      var estimatedExeTimeMs: Long = functionExeTime.getOrElse(action.fullyQualifiedName(true), 1)
+      var estimatedExeTimeMs: Long = functionExeTime.getOrElse(action.fullyQualifiedName(true), 1: Long)
       // exeTime estimation (unit is s)
       var estimatedExeTime: Double = estimatedExeTimeMs / 1000.0
 
