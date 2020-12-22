@@ -1,6 +1,6 @@
 package org.apache.openwhisk.core.loadBalancer
 
-import scala.math
+// import scala.math
 
 /**
  * Distribution (for function cpu utilization)

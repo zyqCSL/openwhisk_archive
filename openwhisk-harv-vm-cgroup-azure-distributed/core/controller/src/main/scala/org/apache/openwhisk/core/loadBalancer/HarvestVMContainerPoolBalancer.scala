@@ -292,8 +292,7 @@ class HarvestVMContainerPoolBalancer(
       msg.cpuUtil = cpuUtil
 
       // exeTime estimation (unit is s)
-      var estimatedExeTime: Double = functionExeTime.getOrElse(action.fullyQualifiedName(true), 1)
-        .toDouble / 1000.0
+      var estimatedExeTime: Double = functionExeTime.getOrElse(action.fullyQualifiedName(true), 1) / 1000.0
 
       // rps estimation
       var estimatedRps: Double = functionLoad.getOrElse(action.fullyQualifiedName(true), 0.0)
@@ -332,7 +331,6 @@ class HarvestVMContainerPoolBalancer(
           MetricEmitter.emitCounterMetric(metric)
         case _ =>
       }
-      invoker.map(_._1)
 
       // update invoker set size
       if(nextInvokerSetSize > 0) {
@@ -340,6 +338,8 @@ class HarvestVMContainerPoolBalancer(
         invokerSetProcessor ! InvokerSetChangeRequest(action.fullyQualifiedName(true),
           isShrink, nextInvokerSetSize, invokerSetVersion)
       }
+
+      invoker.map(_._1)
     } else {
       None
     }
@@ -450,6 +450,9 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
       } else primes
     })
 
+  protected val cpuCoeff: Double = 3.0
+  protected val memCoeff: Double = 1.0
+
   /**
    * Scans through all invokers and searches for an invoker tries to get a free slot on an invoker. If no slot can be
    * obtained, randomly picks a healthy invoker.
@@ -508,11 +511,15 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
       // used to choose the least loaded invoker
       var loaded_score: Double = 0.0  // scored rsc (weighted sum of rsc and memory)
 
+      // for logging
+      var chosen_invoker_avail_cpus: Double = 0.0
+      var chosen_invoker_avail_mem: Int = 0
+
       // estimate if current invoker set is enough to accomodate these functions
       var stepsDone: Int = 0  // number of steps made from homeInvoker
       var nextIndex: Int = homeInvoker  // index of next invoker to check
       var totalRequiredCpu: Double = rps * exeTime * reqCpu
-      var totalRequiredMem: Int = rps * exeTime * reqMemory
+      var totalRequiredMem: Int = (rps * exeTime * reqMemory).toInt
       var invokerSetAvailCpu: Double = 0  // virutal cpus
       var invokerSetAvailMem: Int = 0   // in mb
       var invokerSatisfied: Boolean = false   // if at least 1 invoker has both enough cpu & mem to accomodate the new function
@@ -541,15 +548,18 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
                avail_mem: Int, 
                score: Double) = this_invoker.getAvailResources(
             maxCpuUtil, maxMemUtil, cpuCoeff, memCoeff)
-          logging.warn(this, s"check invoker${this_invoker_id} availCpu ${avail_cpu} availMem ${avail_mem} score ${invoker_score}")
+          logging.warn(this, s"check invoker${this_invoker_id} availCpu ${avail_cpu} availMem ${avail_mem} score ${score}")
 
           if(avail_cpu >= reqCpu && avail_mem >= reqMemory && this_invoker.cpu > cpuLimit) {
-            invokerSetAvailCpu = invokerSetAvailCpu + max(invoker_avail_cpu, 0)
-            invokerSetAvailMem = invokerSetAvailMem + max(invoker_avail_mem, 0)
+            invokerSetAvailCpu = invokerSetAvailCpu + max(avail_cpu, 0)
+            invokerSetAvailMem = invokerSetAvailMem + max(avail_mem, 0)
             if(id_unloaded < 0 || unloaded_score > score) {
               id_unloaded = this_invoker_id
               invoker_id_unloaded = this_invoker.id
               unloaded_score = score
+              // for logging
+              chosen_invoker_avail_cpus = avail_cpu
+              chosen_invoker_avail_mem = avail_mem
             }
           } else if(id_unloaded < 0) {
             // invoker overloaded, record score if no invoker is known to be underloaded
@@ -557,6 +567,9 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
               id_loaded = this_invoker_id
               invoker_id_loaded = this_invoker.id
               loaded_score = score
+              // for logging
+              chosen_invoker_avail_cpus = avail_cpu
+              chosen_invoker_avail_mem = avail_mem
             }
           }
         }
@@ -591,7 +604,7 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
 
       if(id_unloaded != -1) {
         usedResources(id_unloaded).forceAcquire(reqCpu, reqMemory, maxConcurrent, fqn)
-        logging.warn(this, s"system underloaded. Choose invoker ${id_unloaded} (${invoker_id_unloaded.toInt}) leftcpu ${unloaded_cpu_left} leftmem ${unloaded_mem_left} score ${unloaded_score}.")
+        logging.warn(this, s"system underloaded. Choose invoker ${id_unloaded} (${invoker_id_unloaded.toInt}) leftcpu ${chosen_invoker_avail_cpus} leftmem ${chosen_invoker_avail_mem} score ${unloaded_score}.")
         Some(invoker_id_unloaded, false, nextInvokerSetSize)
       } else if(id_loaded == -1) {
         // no healthy invokers left
@@ -599,7 +612,7 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
         None
       } else {
         usedResources(id_loaded).forceAcquire(reqCpu, reqMemory, maxConcurrent, fqn)
-        logging.warn(this, s"system is overloaded. Choose invoker ${id_loaded} (${invoker_id_loaded.toInt}) leftcpu ${loaded_cpu_left} leftmem ${loaded_mem_left} score ${loaded_score}.")
+        logging.warn(this, s"system is overloaded. Choose invoker ${id_loaded} (${invoker_id_loaded.toInt}) leftcpu ${chosen_invoker_avail_cpus} leftmem ${chosen_invoker_avail_mem} score ${loaded_score}.")
         Some(invoker_id_loaded, true, nextInvokerSetSize)
       }
       
