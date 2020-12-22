@@ -128,7 +128,7 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
     (max_cpu, max_mem)
   }
 
-  def proceed_cpu_window_ptr() {
+  def proceed_cgroup_window_ptr() {
     cgroupWindowPtr = cgroupWindowPtr + 1
     if(cgroupWindowPtr >= cgroupWindowSize) {
       cgroupWindowPtr = 0
