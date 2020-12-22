@@ -291,8 +291,10 @@ class HarvestVMContainerPoolBalancer(
         cpuUtil = 1.0  // assume each activation uses 1 cpu without profiling info
       msg.cpuUtil = cpuUtil
 
+      // exeTime (from ms to s)
+      var estimatedExeTimeMs: Long = functionExeTime.getOrElse(action.fullyQualifiedName(true), 1)
       // exeTime estimation (unit is s)
-      var estimatedExeTime: Double = functionExeTime.getOrElse(action.fullyQualifiedName(true), 1) / 1000.0
+      var estimatedExeTime: Double = estimatedExeTimeMs / 1000.0
 
       // rps estimation
       var estimatedRps: Double = functionLoad.getOrElse(action.fullyQualifiedName(true), 0.0)
