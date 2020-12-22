@@ -448,7 +448,7 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
    * @param freeMemory Total amount of available (unused) memory on this invoker (in mb)
    * @return true, if there is enough space for the given amount of memory.
    */
-  def hasPoolSpaceFor[A](pool: Map[A, ContainerData], memory: ByteSize, freeMemory: Int): Boolean = {
+  def hasPoolSpaceFor[A](pool: Map[A, ContainerData], memory: ByteSize, freeMemory: Long): Boolean = {
     memoryConsumptionOf(pool) + memory.toMB <= freeMemory
   }
 
