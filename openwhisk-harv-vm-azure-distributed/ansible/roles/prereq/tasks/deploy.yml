@@ -57,7 +57,7 @@
   become: true
 
 - name: install sysstat for mpstat
-  shell: "apt-get install sysstat"
+  shell: "apt-get -y install sysstat"
   become: true
 
 - name: install requests
