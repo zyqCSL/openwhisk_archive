@@ -87,6 +87,6 @@
   shell: "usermod -aG docker $USER"
   become: true
 
-  - name: add user to docker group
+  - name: add yanqi to docker group
   shell: "usermod -aG docker yanqi"
   become: true
