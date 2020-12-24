@@ -28,7 +28,7 @@
 
 - name: "pull the {{ docker.image.tag }} image of controller"
   # shell: "docker pull {{docker_registry}}{{ docker.image.prefix }}/controller:{{docker.image.tag}}"
-  shell: "docker pull yz2297/controller-mem:latest"
+  shell: "docker pull sailresearch/controller-mem:latest"
   when: docker_registry != ""
   register: result
   until: (result.rc == 0)
@@ -315,7 +315,7 @@
     name: "{{ controller_name }}"
     image:
       # "{{docker_registry~docker.image.prefix}}/controller:{{ 'cov' if (coverage_enabled) else docker.image.tag }}"
-      "yz2297/controller-mem:latest"
+      "sailresearch/controller-mem:latest"
     state: started
     recreate: true
     restart_policy: "{{ docker.restart.policy }}"
