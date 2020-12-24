@@ -87,9 +87,10 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
                 new ActionLoadRecord(loadMaxHistoryLen, loadInitUpdateInterval, loadUpdateInterval))
                 .addInvocation()
         // logging.info(this, s"loadProcessor record set up") 
-        if(estimated_rps >= 0)
+        if(estimated_rps >= 0) {
           functionLoad.update(sample.actionId, estimated_rps)
-        // logging.info(this, s"loadProcessor functionLoad updated") 
+          logging.info(this, s"function ${sample.actionId.asString} estimated_rps = ${estimated_rps}")
+        }
     }
   }))
 
@@ -112,8 +113,10 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
                 new ActionInvokerSetState(invokerSetMinShrinkInterval))
                 .updateNumInvokers(req.numInvokers, req.isShrink, req.version)
         // logging.info(this, s"loadProcessor record set up") 
-        if(update)
+        if(update) {
           functionInvokerSet.update(req.actionId, (num_invokers, new_version))
+          logging.info(this, s"function ${sample.actionId.asString} num_invokers = ${num_invokers} version = ${new_version}")
+        }
         // logging.info(this, s"loadProcessor functionLoad updated") 
     }
   }))
@@ -167,7 +170,7 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
           val provision_limit = math.max(minCpuLimit, math.min(maxCpuLimit, math.ceil(sample.cpuUtil * provisionRatio)))
           // force update when the function is invoked the first time
           functionCpuLimit.update(sample.actionId, provision_limit)
-          logging.info(this, s"function ${sample.actionId.asString} raw_cpu_limit = ${provision_limit} cpu_limit = ${functionCpuLimit.get(sample.actionId)}, cpu_usage = ${estimated_cpu}")
+          logging.info(this, s"function ${sample.actionId.asString} raw_cpu_limit = ${provision_limit} cpu_limit = ${functionCpuLimit.get(sample.actionId)}, cpu_usage = ${estimated_cpu}, exe_time = ${estimated_time}ms")
         } else {
           // update limit according to redundantRatio 
           if(cpu_limit > 0)
@@ -177,7 +180,7 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
           //   functionCpuLimit.update(sample.actionId, estimated_limit)
           // // else if(cpu_limit < math.floor(curr_limit/(redundantRatio*redundantRatio)))
           // //   functionCpuLimit.update(sample.actionId, math.ceil(curr_limit/redundantRatio) )
-          logging.info(this, s"function ${sample.actionId.asString} raw_cpu_limit = ${cpu_limit} cpu_limit = ${functionCpuLimit.get(sample.actionId)}, cpu_usage = ${estimated_cpu}") 
+          logging.info(this, s"function ${sample.actionId.asString} raw_cpu_limit = ${cpu_limit} cpu_limit = ${functionCpuLimit.get(sample.actionId)}, cpu_usage = ${estimated_cpu}, exe_time = ${estimated_time}ms") 
         }
     }
   }))
