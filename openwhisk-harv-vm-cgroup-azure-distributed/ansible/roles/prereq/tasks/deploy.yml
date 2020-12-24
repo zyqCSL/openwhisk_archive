@@ -79,9 +79,9 @@
   shell: "cgcreate -g memory,cpu:cgroup_harvest_vm"
   become: true
 
-- name: create docker group
-  shell: "groupadd docker"
-  become: true
+# - name: create docker group
+#   shell: "groupadd docker"
+#   become: true
 
 - name: add user to docker group
   shell: "usermod -aG docker $USER"
