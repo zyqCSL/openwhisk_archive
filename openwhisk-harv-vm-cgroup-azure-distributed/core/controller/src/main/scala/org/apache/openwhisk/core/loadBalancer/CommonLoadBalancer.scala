@@ -115,7 +115,7 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
         // logging.info(this, s"loadProcessor record set up") 
         if(update) {
           functionInvokerSet.update(req.actionId, (num_invokers, new_version))
-          logging.info(this, s"function ${sample.actionId.asString} num_invokers = ${num_invokers} version = ${new_version}")
+          logging.info(this, s"function ${req.actionId.asString} num_invokers = ${num_invokers} version = ${new_version}")
         }
         // logging.info(this, s"loadProcessor functionLoad updated") 
     }
