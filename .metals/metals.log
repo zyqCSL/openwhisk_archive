@@ -45,3 +45,4 @@ INFO: Unsupported notification method: $/setTraceNotification
 2020.12.24 10:41:38 INFO  time: initialize in 1.81s
 2020.12.24 10:41:38 WARN  Build server is not auto-connectable.
 2020.12.24 10:41:38 WARN  no build tool detected in workspace '/home/zhangyanqi/Research/Projects/openwhisk_archive'. The most common cause for this problem is that the editor was opened in the wrong working directory, for example if you use sbt then the workspace directory should contain build.sbt. 
+2020.12.24 11:59:08 INFO  shutting down Metals

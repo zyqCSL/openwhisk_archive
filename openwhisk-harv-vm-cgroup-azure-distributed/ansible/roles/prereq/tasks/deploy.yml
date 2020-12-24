@@ -44,18 +44,6 @@
   shell: "apt-get update"
   become: true
 
-- name: install pip (apt)
-  shell: "apt-get -y install python-pip"
-  become: true
-
-- name: install nodes
-  shell: "apt-get -y install nodejs"
-  become: true
-
-- name: install npm
-  shell: "apt-get -y install npm"
-  become: true
-
 - name: install sysstat for mpstat
   shell: "apt-get -y install sysstat"
   become: true
@@ -91,39 +79,11 @@
   shell: "cgcreate -g memory,cpu:cgroup_harvest_vm"
   become: true
 
-- name: install docker pre-req
-  shell: "apt-get -y install apt-transport-https ca-certificates curl gnupg-agent software-properties-common"
+- name: create docker group
+  shell: "groupadd docker"
   become: true
-
-- name: add docker’s official GPG key
-  shell: "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -"
-  become: true
-
-- name: set up stable repository for docker
-  shell: "add-apt-repository \"deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable\""
-  become: true
-
-- name: update apt index (3rd)
-  shell: "apt-get -y update"
-  become: true
-
-- name: install docker engine
-  shell: "apt-get -y install docker-ce docker-ce-cli containerd.io"
-  become: true
-
-# - name: create docker group
-#   shell: "groupadd docker"
-#   become: true
 
 - name: add user to docker group
   shell: "usermod -aG docker $USER"
-  become: true
-
-- name: add user to docker group
-  shell: "usermod -aG docker yanqi"
-  become: true
-
-- name: install zip
-  shell: "apt-get -y install zip"
   become: true
 
