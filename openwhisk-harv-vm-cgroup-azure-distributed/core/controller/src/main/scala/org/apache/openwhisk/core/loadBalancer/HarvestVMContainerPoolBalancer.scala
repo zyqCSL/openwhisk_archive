@@ -1022,7 +1022,7 @@ case class HarvestVMContainerPoolBalancerState(
       // val totalInvokerMemory =
       //   _invokers.foldLeft(0L)((total, invoker) => total + getInvokerSlot(invoker.id.userMemory).toMB).MB
       val totalInvokerMemory =
-        _invokers.foldLeft(0)((total, invoker) => total + invoker.memory)
+        _invokers.foldLeft(0: Long)((total, invoker) => total + invoker.memory)
       val averageInvokerMemory =
         if (totalInvokerMemory > 0 && invokerCount > 0) {
           (totalInvokerMemory / invokerCount)
