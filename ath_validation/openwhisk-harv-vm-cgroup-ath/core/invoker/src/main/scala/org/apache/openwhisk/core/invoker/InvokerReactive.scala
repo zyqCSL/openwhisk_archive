@@ -100,17 +100,17 @@ class InvokerReactive(
   val cgroupMemPath = "/sys/fs/cgroup/memory/cgroup_harvest_vm/memory.stat"
   var cgroupCpuTime: Long = 0   // in ns
   var cgroupCpuUsage: Double = 0.0 // virtual cpus
-  var cgroupMemUsage: Int = 0 // in mb
+  var cgroupMemUsage: Long = 0 // in mb
   var cgroupWindowSize: Int = 5
   // list of (cpu_usage, mem_usage) tuples
-  var cgroupWindow: Array[(Double, Int)] = Array.fill(cgroupWindowSize)((-1.0, -1))
+  var cgroupWindow: Array[(Double, Long)] = Array.fill(cgroupWindowSize)((-1.0, -1: Long))
   var cgroupWindowPtr: Int = 0
   var cgroupCheckTime: Long = 0 // in ms
 
-  def get_mean_rsc_usage(): (Double, Int) = {
+  def get_mean_rsc_usage(): (Double, Long) = {
     var samples: Int = 0
     var sum_cpu: Double = 0
-    var sum_mem: Int = 0
+    var sum_mem: Long = 0
     var i: Int = 0
     while(i < cgroupWindowSize) {
       if(cgroupWindow(i)._1 >= 0 && cgroupWindow(i)._2 >= 0) {
@@ -123,9 +123,9 @@ class InvokerReactive(
     (sum_cpu/samples, sum_mem/samples)
   }
 
-  def get_max_rsc_usage(): (Double, Int) = {
+  def get_max_rsc_usage(): (Double, Long) = {
     var max_cpu: Double = 0
-    var max_mem: Int = 0
+    var max_mem: Long = 0
     var i: Int = 0
     while(i < cgroupWindowSize) {
       if(cgroupWindow(i)._1 > max_cpu ) {
@@ -426,7 +426,7 @@ class InvokerReactive(
   private val healthProducer = msgProvider.getProducer(config)
   Scheduler.scheduleWaitAtMost(1.seconds)(() => {
     var cpu: Int = 1
-    var memory: Int = 2048
+    var memory: Long = 2048
 
     controllerIdMap.prune(controllerMapResetInterval)
     var controller_set: Set[String] = controllerIdMap.toSet()
@@ -438,7 +438,7 @@ class InvokerReactive(
       
       if(lines_kvp.size == 2) {
         cpu = lines_kvp(0).toInt
-        memory = lines_kvp(1).toInt
+        memory = lines_kvp(1).toLong
       }
       buffer_kvp.close
     }
@@ -475,16 +475,16 @@ class InvokerReactive(
     if(Files.exists(Paths.get(cgroupMemPath))) {
       val buffer_cgroup_mem = Source.fromFile(cgroupMemPath)
       val lines_cgroup = buffer_cgroup_mem.getLines.toArray
-      var mem_usage: Int = 0  
+      var mem_usage: Long = 0  
 
-      var total_cache: Int = 0
-      var total_rss: Int = 0
+      var total_cache: Long = 0
+      var total_rss: Long = 0
 
       for(line <- lines_cgroup) {
         if(line.contains("total_cache")) {
-          total_cache = line.split(" ")(1).toInt/(1024*1024)
+          total_cache = line.split(" ")(1).toLong/(1024*1024)
         } else if(line.contains("total_rss")) {
-          total_rss = line.split(" ")(1).toInt/(1024*1024)
+          total_rss = line.split(" ")(1).toLong/(1024*1024)
         }
       }
       buffer_cgroup_mem.close
@@ -494,8 +494,8 @@ class InvokerReactive(
       rscFileExists = false
     }
     var mean_cpu_usage: Double = 0.0
-    var mean_mem_usage: Int = 0
-    var max_mem_usage: Int = 0
+    var mean_mem_usage: Long = 0
+    var max_mem_usage: Long = 0
     if(rscFileExists) {
       cgroupWindow(cgroupWindowPtr) = (cgroupCpuUsage, cgroupMemUsage)
       proceed_cgroup_window_ptr()

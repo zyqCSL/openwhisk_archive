@@ -36,8 +36,8 @@ import scala.concurrent.duration._
  * @param status it status (healthy, unhealthy, offline)
  */
 class InvokerHealth(val id: InvokerInstanceId, val status: InvokerState, 
-    val cpu: Int, val memory :Int,
-    val cpuUsage: Double, val memUsage: Int,
+    val cpu: Int, val memory :Long,
+    val cpuUsage: Double, val memUsage: Long,
     val controllerSet: Set[String]) {
   override def equals(obj: scala.Any): Boolean = obj match {
     case that: InvokerHealth => that.id == this.id && that.status == this.status && 
@@ -47,14 +47,14 @@ class InvokerHealth(val id: InvokerInstanceId, val status: InvokerState,
     case _                   => false
   }
 
-  def hasCapacity(req_cpu: Double, req_memory: Int) = (req_cpu + this.cpuUsage <= this.cpu && req_memory + this.memUsage <= this.memory)
+  def hasCapacity(req_cpu: Double, req_memory: Long) = (req_cpu + this.cpuUsage <= this.cpu && req_memory + this.memUsage <= this.memory)
   def hasCpuCapacity(req_cpu: Double) = req_cpu + this.cpuUsage <= this.cpu
-  def hasMemCapacity(req_memory: Int) = req_memory + this.memUsage <= this.memory
+  def hasMemCapacity(req_memory: Long) = req_memory + this.memUsage <= this.memory
   // report available resources of the invoker, and invoker resource usage score
   def getAvailResources(maxCpuUtil: Double, maxMemUtil: Double,
-    cpuCoeff: Double, memCoeff: Double): (Double, Int, Double) = {
+    cpuCoeff: Double, memCoeff: Double): (Double, Long, Double) = {
       val availCpu: Double = cpu * maxCpuUtil - cpuUsage
-      val availMem: Int = (memory * maxMemUtil).toInt - memUsage
+      val availMem: Long = (memory * maxMemUtil).toLong - memUsage
       val score: Double = cpuUsage/cpu * cpuCoeff + memUsage*1.0/memory * memCoeff
       (availCpu, availMem, score)
   }
