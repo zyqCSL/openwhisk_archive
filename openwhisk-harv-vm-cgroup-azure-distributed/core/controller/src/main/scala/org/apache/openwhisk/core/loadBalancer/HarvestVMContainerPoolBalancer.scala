@@ -521,7 +521,7 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
       var stepsDone: Int = 0  // number of steps made from homeInvoker
       var nextIndex: Int = homeInvoker  // index of next invoker to check
       var totalRequiredCpu: Double = rps * exeTime * reqCpu
-      var totalRequiredMem: Int = (rps * exeTime * reqMemory).toInt
+      var totalRequiredMem: Long = (rps * exeTime * reqMemory).toLong
       var invokerSetAvailCpu: Double = 0  // virutal cpus
       var invokerSetAvailMem: Long = 0   // in mb
       var invokerSatisfied: Boolean = false   // if at least 1 invoker has both enough cpu & mem to accomodate the new function
@@ -689,7 +689,7 @@ class InvokerResourceUsage(var _cpu: Double, var _memory: Long,
    * @return true if there is enough resource
    */
   protected var actionConcurrentSlotsMap: MMap[FullyQualifiedEntityName, ConcurrencySlot] = MMap.empty[FullyQualifiedEntityName, ConcurrencySlot]
-  def acquire(totalCpu: Double, totalMemory: Int, reqCpu: Double, reqMemory: Long, 
+  def acquire(totalCpu: Double, totalMemory: Long, reqCpu: Double, reqMemory: Long, 
               maxConcurrent: Int, actionId: FullyQualifiedEntityName): Boolean = {
     var ret = false
     this.synchronized {
@@ -766,12 +766,12 @@ class InvokerResourceUsage(var _cpu: Double, var _memory: Long,
   /**
    * return (left_cpu, left_mem, node_score) (left resources on the invoker after subtracting the requested)
    */
-  def reportLeftResources(totalCpu: Double, totalMemory: Long, reqCpu: Double, reqMemory: Int, maxConcurrent: Int, actionId: FullyQualifiedEntityName) = {
+  def reportLeftResources(totalCpu: Double, totalMemory: Long, reqCpu: Double, reqMemory: Long, maxConcurrent: Int, actionId: FullyQualifiedEntityName) = {
     this.synchronized {
       var leftcpu = totalCpu - cpu - reqCpu // assume that cpu is always additive
       var cpuutil: Double = (cpu + reqCpu)/totalCpu
 
-      var leftmem: Int = 0
+      var leftmem: Long = 0
       var memutil: Double = 0.0
       if(maxConcurrent > 1 && actionConcurrentSlotsMap.contains(actionId) && actionConcurrentSlotsMap(actionId).remaining > 1) {
         // there's container with spare capacity, no more memory needed 
@@ -819,7 +819,7 @@ class InvokerResourceUsage(var _cpu: Double, var _memory: Long,
 }
 
 // default timeout of invoker set to 10s
-class SyncControllerState(val _timeout: Long = 10*1000) {
+class SyncControllerState(val _timeout: Long = 10*1000)(implicit logging: Logging) {
   private var controllerGossipTime: MMap[String, Long] = MMap.empty[String, Long]
 
   def clusterSize: Int = {
