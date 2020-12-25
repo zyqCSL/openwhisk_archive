@@ -1,3 +1,4 @@
+ansible-playbook prereq.yml
 ansible-playbook couchdb.yml
 ansible-playbook initdb.yml
 ansible-playbook wipe.yml

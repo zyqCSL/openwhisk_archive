@@ -207,8 +207,8 @@ class HarvestVMContainerPoolBalancer(
     MetricEmitter.emitGaugeMetric(OFFLINE_INVOKER_BLACKBOX, schedulingState.blackboxInvokers.count(_.status == Offline))
   }
 
-  val maxCpuUtil: Double = 0.9
-  val maxMemUtil: Double = 0.9
+  val maxCpuUtil: Double = 0.75
+  val maxMemUtil: Double = 0.8
 
   /** State needed for scheduling. */
   val schedulingState = HarvestVMContainerPoolBalancerState()(lbConfig)
