@@ -50,3 +50,13 @@ INFO: Unsupported notification method: $/setTraceNotification
 2020.12.24 23:48:46 INFO  time: initialize in 2.57s
 2020.12.24 23:48:47 WARN  Build server is not auto-connectable.
 2020.12.24 23:48:47 WARN  no build tool detected in workspace '/home/zhangyanqi/Research/Projects/openwhisk_archive'. The most common cause for this problem is that the editor was opened in the wrong working directory, for example if you use sbt then the workspace directory should contain build.sbt. 
+2020.12.25 00:27:05 INFO  shutting down Metals
+2020.12.25 09:59:55 INFO  Started: Metals version 0.9.8 in workspace '/home/zhangyanqi/Research/Projects/openwhisk_archive' for client vscode.
+2020.12.25 09:59:57 INFO  time: initialize in 2s
+2020.12.25 09:59:58 WARN  Build server is not auto-connectable.
+2020.12.25 09:59:58 WARN  no build tool detected in workspace '/home/zhangyanqi/Research/Projects/openwhisk_archive'. The most common cause for this problem is that the editor was opened in the wrong working directory, for example if you use sbt then the workspace directory should contain build.sbt. 
+2020.12.25 10:34:18 INFO  shutting down Metals
+2020.12.25 10:46:45 INFO  Started: Metals version 0.9.8 in workspace '/home/zhangyanqi/Research/Projects/openwhisk_archive' for client vscode.
+2020.12.25 10:46:47 INFO  time: initialize in 2.02s
+2020.12.25 10:46:48 WARN  Build server is not auto-connectable.
+2020.12.25 10:46:48 WARN  no build tool detected in workspace '/home/zhangyanqi/Research/Projects/openwhisk_archive'. The most common cause for this problem is that the editor was opened in the wrong working directory, for example if you use sbt then the workspace directory should contain build.sbt. 
