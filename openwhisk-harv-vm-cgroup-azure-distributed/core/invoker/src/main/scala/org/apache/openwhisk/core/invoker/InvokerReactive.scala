@@ -494,6 +494,7 @@ class InvokerReactive(
       rscFileExists = false
     }
     var mean_cpu_usage: Double = 0.0
+    var max_cpu_usage: Double = 0.0
     var mean_mem_usage: Long = 0
     var max_mem_usage: Long = 0
     if(rscFileExists) {
@@ -503,14 +504,15 @@ class InvokerReactive(
       mean_cpu_usage = c
       mean_mem_usage = m
       val (c_m, m_m) = get_max_rsc_usage()
+      max_cpu_usage = c_m
       max_mem_usage = m_m
       logging.info(this, s"healthPing cgroupCpuUsage, cgroupMemUsage = ${cgroupCpuUsage}, ${cgroupMemUsage}")
-      logging.info(this, s"healthPing mean_cgroupCpuUsage, mean_cgroupMemUsage, max_cgroupMemUsage = ${mean_cpu_usage}, ${mean_mem_usage}, ${max_mem_usage}")
+      logging.info(this, s"healthPing mean_cgroupCpuUsage, mean_cgroupMemUsage, max_cgroupCpuUsage max_cgroupMemUsage = ${mean_cpu_usage}, ${mean_mem_usage}, ${max_cpu_usage}, ${max_mem_usage}")
     }
     
     healthProducer.send("health", PingMessage(
         instance, cpu, memory, 
-        mean_cpu_usage, max_mem_usage,
+        max_cpu_usage, max_mem_usage,
         controller_set)).andThen {
       case Failure(t) => logging.error(this, s"failed to ping the controller: $t")
       // case Success(_) => logging.info(this, s"heartbeat -- cpu: ${cpu}, memory ${memory}, linenum ${lines.size}")
