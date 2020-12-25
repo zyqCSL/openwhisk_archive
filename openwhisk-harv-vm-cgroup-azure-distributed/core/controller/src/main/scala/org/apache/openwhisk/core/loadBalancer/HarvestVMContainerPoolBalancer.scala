@@ -481,7 +481,7 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
     usedResources: Map[Int, InvokerResourceUsage],
     reqCpu: Double,
     cpuLimit: Double,
-    reqMemory: Int,
+    reqMemory: Long,
     exeTime: Double,
     maxCpuUtil: Double,
     maxMemUtil: Double,
@@ -515,7 +515,7 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
 
       // for logging
       var chosen_invoker_avail_cpus: Double = 0.0
-      var chosen_invoker_avail_mem: Int = 0
+      var chosen_invoker_avail_mem: Long = 0
 
       // estimate if current invoker set is enough to accomodate these functions
       var stepsDone: Int = 0  // number of steps made from homeInvoker
@@ -523,7 +523,7 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
       var totalRequiredCpu: Double = rps * exeTime * reqCpu
       var totalRequiredMem: Int = (rps * exeTime * reqMemory).toInt
       var invokerSetAvailCpu: Double = 0  // virutal cpus
-      var invokerSetAvailMem: Int = 0   // in mb
+      var invokerSetAvailMem: Long = 0   // in mb
       var invokerSatisfied: Boolean = false   // if at least 1 invoker has both enough cpu & mem to accomodate the new function
       var currInvokerSetSize: Int = invokerSetSize
       var nextInvokerSetSize: Int = 0   // recommended invoker set size based on current load
@@ -547,7 +547,7 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
           //  this_invoker.cpu.toDouble/clusterSize, 
           //  this_invoker.memory/clusterSize, reqCpu, reqMemory, maxConcurrent, fqn)
           val (avail_cpu: Double, 
-               avail_mem: Int, 
+               avail_mem: Long, 
                score: Double) = this_invoker.getAvailResources(
             maxCpuUtil, maxMemUtil, cpuCoeff, memCoeff)
           logging.warn(this, s"check invoker${this_invoker_id} availCpu ${avail_cpu} availMem ${avail_mem} score ${score}")
@@ -606,7 +606,7 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
 
       if(id_unloaded != -1) {
         usedResources(id_unloaded).forceAcquire(reqCpu, reqMemory, maxConcurrent, fqn)
-        logging.warn(this, s"system underloaded. Choose invoker ${id_unloaded} (${invoker_id_unloaded.toInt}) leftcpu ${chosen_invoker_avail_cpus} leftmem ${chosen_invoker_avail_mem} score ${unloaded_score}.")
+        logging.warn(this, s"system underloaded. Choose invoker ${id_unloaded} (${invoker_id_unloaded.toInt}) leftcpu ${chosen_invoker_avail_cpus} leftmem ${chosen_invoker_avail_mem} score ${unloaded_score} nextInvokerSet ${nextInvokerSetSize} homeInvoker ${homeInvoker}.")
         Some(invoker_id_unloaded, false, nextInvokerSetSize)
       } else if(id_loaded == -1) {
         // no healthy invokers left
@@ -614,7 +614,7 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
         None
       } else {
         usedResources(id_loaded).forceAcquire(reqCpu, reqMemory, maxConcurrent, fqn)
-        logging.warn(this, s"system is overloaded. Choose invoker ${id_loaded} (${invoker_id_loaded.toInt}) leftcpu ${chosen_invoker_avail_cpus} leftmem ${chosen_invoker_avail_mem} score ${loaded_score}.")
+        logging.warn(this, s"system is overloaded. Choose invoker ${id_loaded} (${invoker_id_loaded.toInt}) leftcpu ${chosen_invoker_avail_cpus} leftmem ${chosen_invoker_avail_mem} score ${loaded_score} nextInvokerSet ${nextInvokerSetSize} homeInvoker ${homeInvoker}.")
         Some(invoker_id_loaded, true, nextInvokerSetSize)
       }
       
@@ -669,10 +669,10 @@ class ConcurrencySlot(val maxConcurrent: Int) {
   }
 }
 
-class InvokerResourceUsage(var _cpu: Double, var _memory: Int, 
+class InvokerResourceUsage(var _cpu: Double, var _memory: Long, 
     var _id: Int, var _cpu_coeff: Double, var _mem_coeff: Double)(implicit logging: Logging) {
   protected var cpu: Double = _cpu
-  protected var memory: Int = _memory
+  protected var memory: Long = _memory
   protected val id: Int = _id
 
   // coefficients for scoring invokers
@@ -689,7 +689,7 @@ class InvokerResourceUsage(var _cpu: Double, var _memory: Int,
    * @return true if there is enough resource
    */
   protected var actionConcurrentSlotsMap: MMap[FullyQualifiedEntityName, ConcurrencySlot] = MMap.empty[FullyQualifiedEntityName, ConcurrencySlot]
-  def acquire(totalCpu: Double, totalMemory: Int, reqCpu:Double, reqMemory:Int, 
+  def acquire(totalCpu: Double, totalMemory: Int, reqCpu: Double, reqMemory: Long, 
               maxConcurrent: Int, actionId: FullyQualifiedEntityName): Boolean = {
     var ret = false
     this.synchronized {
@@ -731,7 +731,7 @@ class InvokerResourceUsage(var _cpu: Double, var _memory: Int,
   /**
    * force to acquire resources for an invocation, even if invoker is overloaded
    */
-  def forceAcquire(reqCpu:Double, reqMemory:Int, maxConcurrent: Int, actionId: FullyQualifiedEntityName) {
+  def forceAcquire(reqCpu:Double, reqMemory:Long, maxConcurrent: Int, actionId: FullyQualifiedEntityName) {
     this.synchronized {
       if(maxConcurrent == 1) {
         cpu = cpu + reqCpu
@@ -753,7 +753,7 @@ class InvokerResourceUsage(var _cpu: Double, var _memory: Int,
   /**
    * return (avail_cpu, avail_mem, if_need_no_more_rsc)
    */
-  def reportAvailResources(totalCpu: Double, totalMemory: Int, maxConcurrent: Int, actionId: FullyQualifiedEntityName) = {
+  def reportAvailResources(totalCpu: Double, totalMemory: Long, maxConcurrent: Int, actionId: FullyQualifiedEntityName) = {
     this.synchronized {
       var leftcpu = totalCpu - cpu
       var leftmem = totalMemory - memory
@@ -766,7 +766,7 @@ class InvokerResourceUsage(var _cpu: Double, var _memory: Int,
   /**
    * return (left_cpu, left_mem, node_score) (left resources on the invoker after subtracting the requested)
    */
-  def reportLeftResources(totalCpu: Double, totalMemory: Int, reqCpu: Double, reqMemory: Int, maxConcurrent: Int, actionId: FullyQualifiedEntityName) = {
+  def reportLeftResources(totalCpu: Double, totalMemory: Long, reqCpu: Double, reqMemory: Int, maxConcurrent: Int, actionId: FullyQualifiedEntityName) = {
     this.synchronized {
       var leftcpu = totalCpu - cpu - reqCpu // assume that cpu is always additive
       var cpuutil: Double = (cpu + reqCpu)/totalCpu
@@ -791,7 +791,7 @@ class InvokerResourceUsage(var _cpu: Double, var _memory: Int,
   /**
    * release resources when invocation completes
    */
-  def release(reqCpu: Double, reqMemory: Int, maxConcurrent: Int, actionId: FullyQualifiedEntityName) {
+  def release(reqCpu: Double, reqMemory: Long, maxConcurrent: Int, actionId: FullyQualifiedEntityName) {
     var release_mem = true
     this.synchronized {
       if(maxConcurrent > 1) {
@@ -844,6 +844,8 @@ class SyncControllerState(val _timeout: Long = 10*1000) {
         } 
       }
       controllerGossipTime = newMap
+      logging.info(
+          this, s"num_peer_controllers = ${controllerGossipTime.size}, clusterSize = ${clusterSize}")
     }
   }
 }

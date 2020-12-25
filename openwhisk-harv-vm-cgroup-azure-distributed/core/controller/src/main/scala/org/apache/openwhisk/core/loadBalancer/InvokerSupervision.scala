@@ -220,8 +220,8 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
 
   // yanqi, add rsc
   // Register a new invoker
-  def registerInvoker(instanceId: InvokerInstanceId, cpu: Int, memory: Int, 
-      cpuUsage: Double, memUsage: Int,
+  def registerInvoker(instanceId: InvokerInstanceId, cpu: Int, memory: Long, 
+      cpuUsage: Double, memUsage: Long,
       controllerSet: Set[String]): ActorRef = {
     logging.info(this, s"registered a new invoker: invoker${instanceId.toInt}")(TransactionId.invokerHealth)
 

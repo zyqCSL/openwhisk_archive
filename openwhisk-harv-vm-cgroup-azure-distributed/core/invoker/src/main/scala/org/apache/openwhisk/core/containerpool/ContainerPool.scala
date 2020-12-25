@@ -90,16 +90,16 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
   val cgroupMemPath = "/sys/fs/cgroup/memory/cgroup_harvest_vm/memory.stat"
   var cgroupCpuTime: Long = 0   // in ns
   var cgroupCpuUsage: Double = 0.0 // virtual cpus
-  var cgroupMemUsage: Int = 0 // in mb
+  var cgroupMemUsage: Long = 0 // in mb
   var cgroupWindowSize: Int = 5
   // (cpu, mem) tuples
-  var cgroupWindow: Array[(Double, Int)] = Array.fill(cgroupWindowSize)((-1.0, -1))
+  var cgroupWindow: Array[(Double, Long)] = Array.fill(cgroupWindowSize)((-1.0, -1: Long))
   var cgroupWindowPtr: Int = 0
 
-  def get_mean_rsc_usage(): (Double, Int) = {
+  def get_mean_rsc_usage(): (Double, Long) = {
     var samples: Int = 0
     var sum_cpu: Double = 0
-    var sum_mem: Int = 0
+    var sum_mem: Long = 0
     var i: Int = 0
     while(i < cgroupWindowSize) {
       if(cgroupWindow(i)._1 >= 0 && cgroupWindow(i)._2 >= 0) {
@@ -112,9 +112,9 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
     (sum_cpu/samples, sum_mem/samples)
   }
 
-  def get_max_rsc_usage(): (Double, Int) = {
+  def get_max_rsc_usage(): (Double, Long) = {
     var max_cpu: Double = 0
-    var max_mem: Int = 0
+    var max_mem: Long = 0
     var i: Int = 0
     while(i < cgroupWindowSize) {
       if(cgroupWindow(i)._1 > max_cpu ) {
@@ -136,21 +136,21 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
   }
 
   // return mem usage of the cgroup (in mb)
-  def parse_cgroup_mem_state(memStatPath: String): Int = {
-    var total_mem: Int = 0
+  def parse_cgroup_mem_state(memStatPath: String): Long = {
+    var total_mem: Long = 0
     if(memStatPath != "" && Files.exists(Paths.get(memStatPath))) {
       val buffer_cgroup_mem = Source.fromFile(memStatPath)
       val lines_cgroup = buffer_cgroup_mem.getLines.toArray
-      var mem_usage: Int = 0  
+      var mem_usage: Long = 0  
 
-      var total_cache: Int = 0
-      var total_rss: Int = 0
+      var total_cache: Long = 0
+      var total_rss: Long = 0
 
       for(line <- lines_cgroup) {
         if(line.contains("total_cache")) {
-          total_cache = line.split(" ")(1).toInt/(1024*1024)
+          total_cache = line.split(" ")(1).toLong/(1024*1024)
         } else if(line.contains("total_rss")) {
-          total_rss = line.split(" ")(1).toInt/(1024*1024)
+          total_rss = line.split(" ")(1).toLong/(1024*1024)
         }
       }
       total_mem = total_cache + total_rss
@@ -465,7 +465,7 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
     if(curms - prevCheckTime >= resourceCheckInterval) {
       prevCheckTime = curms
       var cpu: Double = 1.0
-      var memory: Int = 2048
+      var memory: Long = 2048
 
       // check total available resources
       if(Files.exists(Paths.get(resourcePath))) {
@@ -474,7 +474,7 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
         
         if(lines_kvp.size == 2) {
           cpu = lines_kvp(0).toDouble
-          memory = lines_kvp(1).toInt
+          memory = lines_kvp(1).toLong
         }
         buffer_kvp.close
       }
@@ -516,16 +516,16 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
       if(Files.exists(Paths.get(cgroupMemPath))) {
         val buffer_cgroup_mem = Source.fromFile(cgroupMemPath)
         val lines_cgroup = buffer_cgroup_mem.getLines.toArray
-        var mem_usage: Int = 0  
+        var mem_usage: Long = 0  
 
-        var total_cache: Int = 0
-        var total_rss: Int = 0
+        var total_cache: Long = 0
+        var total_rss: Long = 0
 
         for(line <- lines_cgroup) {
           if(line.contains("total_cache")) {
-            total_cache = line.split(" ")(1).toInt/(1024*1024)
+            total_cache = line.split(" ")(1).toLong/(1024*1024)
           } else if(line.contains("total_rss")) {
-            total_rss = line.split(" ")(1).toInt/(1024*1024)
+            total_rss = line.split(" ")(1).toLong/(1024*1024)
           }
         }
         buffer_cgroup_mem.close

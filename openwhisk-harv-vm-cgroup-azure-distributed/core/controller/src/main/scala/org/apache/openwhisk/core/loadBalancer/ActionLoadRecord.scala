@@ -44,14 +44,16 @@ class ActionLoadRecord(
         if(prevUpdateTime == 0)
             prevUpdateTime = cur_time_ms
         if(initEstimate && cur_time_ms - prevUpdateTime > initUpdateInterval) {
-            estimated_rps = invocations*1000/(cur_time_ms - prevUpdateTime)
+            estimated_rps = invocations*1000.0/(cur_time_ms - prevUpdateTime)
             initEstimate = false
             _addRpsHistory(estimated_rps)
             prevUpdateTime = cur_time_ms
+            invocations = 0
         } else if(cur_time_ms - prevUpdateTime > updateInterval) {
-            estimated_rps = invocations*1000/(cur_time_ms - prevUpdateTime)
+            estimated_rps = invocations*1000.0/(cur_time_ms - prevUpdateTime)
             _addRpsHistory(estimated_rps)
             prevUpdateTime = cur_time_ms
+            invocations = 0
         }
 
         estimated_rps
