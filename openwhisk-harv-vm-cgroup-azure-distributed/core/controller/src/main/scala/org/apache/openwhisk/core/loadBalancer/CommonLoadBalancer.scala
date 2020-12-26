@@ -131,7 +131,7 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
   protected[loadBalancer] val functionCpuTimeDistr = MMap[FullyQualifiedEntityName, Distribution]()
 
   protected val cpuUtilNumCores: Int = 40
-  protected val cpuUtilUpdatBatch: Int = 20
+  protected val cpuUtilUpdatBatch: Int = 5
   protected val cpuUtilPercentile: Double = 0.75
   protected val cpuLimitPercentile: Double = 0.99
   protected val exeTimePercentile: Double = 0.75
@@ -168,19 +168,27 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
         val estimated_limit = math.max(minCpuLimit, math.min(maxCpuLimit, math.ceil(cpu_limit * redundantRatio)))
         if(sample.updateCpuLimit) {
           val provision_limit = math.max(minCpuLimit, math.min(maxCpuLimit, math.ceil(sample.cpuUtil * provisionRatio)))
+          val provision_usage = math.max(minCpuLimit, math.min(maxCpuLimit, math.ceil(sample.cpuUtil * redundantRatio)))
+          val provision_time = sample.exeTime * redundantRatio
           // force update when the function is invoked the first time
           functionCpuLimit.update(sample.actionId, provision_limit)
-          logging.info(this, s"function ${sample.actionId.asString} raw_cpu_limit = ${provision_limit} cpu_limit = ${functionCpuLimit.get(sample.actionId)}, cpu_usage = ${estimated_cpu}, exe_time = ${estimated_time}ms")
+          functionCpuUtil.update(sample.actionId, provision_usage)
+          functionExeTime.update(sample.actionId, provision_time)
+          logging.info(this, s"function ${sample.actionId.asString} cpu_limit = ${functionCpuLimit.get(sample.actionId)}, cpu_usage = ${functionCpuUtil.get(sample.actionId)}, exe_time = ${functionExeTime.get(sample.actionId)}ms")
         } else {
           // update limit according to redundantRatio 
           if(cpu_limit > 0)
             functionCpuLimit.update(sample.actionId, estimated_limit)
+          if(estimated_cpu > 0)
+            functionCpuUtil.update(sample.actionId, estimated_cpu)
+          if(estimated_time > 0)
+            functionExeTime.update(sample.actionId, estimated_time)
           // val curr_limit = functionCpuLimit.getOrElse(sample.actionId, 0.0)
           // if(curr_limit < estimated_limit)
           //   functionCpuLimit.update(sample.actionId, estimated_limit)
           // // else if(cpu_limit < math.floor(curr_limit/(redundantRatio*redundantRatio)))
           // //   functionCpuLimit.update(sample.actionId, math.ceil(curr_limit/redundantRatio) )
-          logging.info(this, s"function ${sample.actionId.asString} raw_cpu_limit = ${cpu_limit} cpu_limit = ${functionCpuLimit.get(sample.actionId)}, cpu_usage = ${estimated_cpu}, exe_time = ${estimated_time}ms") 
+          logging.info(this, s"function ${sample.actionId.asString} cpu_limit = ${functionCpuLimit.get(sample.actionId)}, cpu_usage = ${functionCpuUtil.get(sample.actionId)}, exe_time = ${functionExeTime.get(sample.actionId)}ms") 
         }
     }
   }))
