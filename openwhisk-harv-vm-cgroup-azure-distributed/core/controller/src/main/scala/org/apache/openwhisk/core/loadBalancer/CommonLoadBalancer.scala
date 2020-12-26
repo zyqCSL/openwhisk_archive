@@ -169,7 +169,7 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
         if(sample.updateCpuLimit) {
           val provision_limit = math.max(minCpuLimit, math.min(maxCpuLimit, math.ceil(sample.cpuUtil * provisionRatio)))
           val provision_usage = math.max(minCpuLimit, math.min(maxCpuLimit, math.ceil(sample.cpuUtil * redundantRatio)))
-          val provision_time = sample.exeTime * redundantRatio
+          val provision_time = (sample.exeTime * redundantRatio).toLong
           // force update when the function is invoked the first time
           functionCpuLimit.update(sample.actionId, provision_limit)
           functionCpuUtil.update(sample.actionId, provision_usage)

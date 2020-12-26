@@ -94,7 +94,7 @@ class Distribution(
                 // }
                 // estimated_cpu = accum_val * _cpuStep/numSamples
                 estimated_cpu = accum_cpu_time_product.toDouble / accum_exe_time
-                estimated_time = (accum_exe_time / numSamples).toLong
+                estimated_time = math.max((accum_exe_time / numSamples).toLong, 1)
                 // always compute cpu limit based on percentile
                 var cpu_limit_unknown: Boolean = true
                 var accum_samples: Long = 0
