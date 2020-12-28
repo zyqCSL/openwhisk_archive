@@ -21,7 +21,7 @@ results
 !/ansible/environments/vagrant
 
 # Eclipse
-bin/
+# bin/
 **/.project
 .settings/
 .classpath
