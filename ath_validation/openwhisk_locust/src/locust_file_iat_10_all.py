@@ -101,11 +101,11 @@ class OpenWhiskUser(HttpUser):
         if r.status_code > 202:
             logging.warning('image_process resp.status = %d, text=%s' %(r.status_code,
                 r.text))
-        try:
-            aid = json.loads(r.text)['activationId']
-            logging.info('aid--image_process:%s' %aid)
-        except:
-            logging.error('image_process response json parsing error')
+        # try:
+        #     aid = json.loads(r.text)['activationId']
+        #     logging.info('aid--image_process:%s' %aid)
+        # except:
+        #     logging.error('image_process response json parsing error')
 
 
     @task(5)
@@ -132,11 +132,11 @@ class OpenWhiskUser(HttpUser):
             logging.warning('mobilenet resp.status = %d, text=%s' %(r.status_code,
                 r.text))
         # logging.info('resp.text=%s' %r.text)
-        try:
-            aid = json.loads(r.text)['activationId']
-            logging.info('aid--mobilenet:%s' %aid)
-        except:
-            logging.error('mobilenet response json parsing error')
+        # try:
+        #     aid = json.loads(r.text)['activationId']
+        #     logging.info('aid--mobilenet:%s' %aid)
+        # except:
+        #     logging.error('mobilenet response json parsing error')
 
     @task(5)
     @tag('video_process')
@@ -163,11 +163,11 @@ class OpenWhiskUser(HttpUser):
             logging.warning('video_process resp.status = %d, text=%s' %(r.status_code,
                 r.text))
 
-        try:
-            aid = json.loads(r.text)['activationId']
-            logging.info('aid--video_process:%s' %aid)
-        except:
-            logging.error('video_process response json parsing error')
+        # try:
+        #     aid = json.loads(r.text)['activationId']
+        #     logging.info('aid--video_process:%s' %aid)
+        # except:
+        #     logging.error('video_process response json parsing error')
 
     @task(5)
     @tag('lr_review')
@@ -192,11 +192,11 @@ class OpenWhiskUser(HttpUser):
             logging.warning('lr_review resp.status = %d, text=%s' %(r.status_code,
                 r.text))
 
-        try:
-            aid = json.loads(r.text)['activationId']
-            logging.info('aid--lr_review:%s' %aid)
-        except:
-            logging.error('lr_review response json parsing error')
+        # try:
+        #     aid = json.loads(r.text)['activationId']
+        #     logging.info('aid--lr_review:%s' %aid)
+        # except:
+        #     logging.error('lr_review response json parsing error')
 
 
     @task(5)
@@ -223,11 +223,11 @@ class OpenWhiskUser(HttpUser):
             logging.warning('chameleon resp.status = %d, text=%s' %(r.status_code,
                 r.text))
 
-        try:
-            aid = json.loads(r.text)['activationId']
-            logging.info('aid--chameleon:%s' %aid)
-        except:
-            logging.error('chameleon response json parsing error')
+        # try:
+        #     aid = json.loads(r.text)['activationId']
+        #     logging.info('aid--chameleon:%s' %aid)
+        # except:
+        #     logging.error('chameleon response json parsing error')
 
     @task(2)
     @tag('float_op')
@@ -248,11 +248,11 @@ class OpenWhiskUser(HttpUser):
             logging.warning('float_op resp.status = %d, text=%s' %(r.status_code,
                 r.text))
 
-        try:
-            aid = json.loads(r.text)['activationId']
-            logging.info('aid--float_op:%s' %aid)
-        except:
-            logging.error('float_op response json parsing error')
+        # try:
+        #     aid = json.loads(r.text)['activationId']
+        #     logging.info('aid--float_op:%s' %aid)
+        # except:
+        #     logging.error('float_op response json parsing error')
 
     @task(1)
     @tag('linpack')
@@ -277,11 +277,11 @@ class OpenWhiskUser(HttpUser):
             logging.warning('linpack resp.status = %d, text=%s' %(r.status_code,
                 r.text))
 
-        try:
-            aid = json.loads(r.text)['activationId']
-            logging.info('aid--linpack:%s' %aid)
-        except:
-            logging.error('linpack response json parsing error')
+        # try:
+        #     aid = json.loads(r.text)['activationId']
+        #     logging.info('aid--linpack:%s' %aid)
+        # except:
+        #     logging.error('linpack response json parsing error')
 
     @task(1)
     @tag('matmult')
@@ -306,11 +306,11 @@ class OpenWhiskUser(HttpUser):
             logging.warning('matmult resp.status = %d, text=%s' %(r.status_code,
                 r.text))
 
-        try:
-            aid = json.loads(r.text)['activationId']
-            logging.info('aid--matmult:%s' %aid)
-        except:
-            logging.error('matmult response json parsing error')
+        # try:
+        #     aid = json.loads(r.text)['activationId']
+        #     logging.info('aid--matmult:%s' %aid)
+        # except:
+        #     logging.error('matmult response json parsing error')
 
 
     @task(5)
@@ -337,9 +337,9 @@ class OpenWhiskUser(HttpUser):
             logging.warning('pyaes resp.status = %d, text=%s' %(r.status_code,
                 r.text))
 
-        try:
-            aid = json.loads(r.text)['activationId']
-            logging.info('aid--pyaes:%s' %aid)
-        except:
-            logging.error('pyaes response json parsing error')
+        # try:
+        #     aid = json.loads(r.text)['activationId']
+        #     logging.info('aid--pyaes:%s' %aid)
+        # except:
+        #     logging.error('pyaes response json parsing error')
 

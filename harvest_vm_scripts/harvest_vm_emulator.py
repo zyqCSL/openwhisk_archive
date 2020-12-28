@@ -2,7 +2,6 @@ import os
 import sys
 import time
 import subprocess
-import multiprocessing
 
 HypervFile = "/var/lib/hyperv/.kvp_pool_0"
 HarvestVmCgroupDir = "/sys/fs/cgroup/cpu/cgroup_harvest_vm/"
