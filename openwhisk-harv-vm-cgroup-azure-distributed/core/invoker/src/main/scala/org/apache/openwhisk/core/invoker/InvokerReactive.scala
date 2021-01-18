@@ -552,8 +552,8 @@ class InvokerReactive(
       val (c_m, m_m) = get_max_rsc_usage()
       max_cpu_usage = c_m
       max_mem_usage = m_m
-      logging.info(this, s"healthPing cgroupCpuUsage, cgroupMemUsage = ${cgroupCpuUsage}, ${cgroupMemUsage}")
-      logging.info(this, s"healthPing mean_cgroupCpuUsage, mean_cgroupMemUsage, max_cgroupCpuUsage, max_cgroupMemUsage = ${mean_cpu_usage}, ${mean_mem_usage}, ${max_cpu_usage}, ${max_mem_usage}")
+      logging.info(this, s"healthPing cpu=${cpu}, mem=${memory}, cgroupCpuUsage=${cgroupCpuUsage}, cgroupMemUsage=${cgroupMemUsage}")
+      logging.info(this, s"healthPing mean_cgroupCpuUsage=${mean_cpu_usage}, mean_cgroupMemUsage=${mean_mem_usage}, max_cgroupCpuUsage=${max_cpu_usage}, max_cgroupMemUsage=${max_mem_usage}")
     }
     // parse azure scheduled vm events    
     import AzureMetaDataJsonProtocol._

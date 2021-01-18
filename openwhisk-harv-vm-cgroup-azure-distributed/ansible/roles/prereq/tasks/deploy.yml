@@ -45,7 +45,7 @@
 #   become: true
 
 - name: write core number to /var/lib/hyperv/.kvp_pool_0 (change if core != 48)
-  shell: bash -c 'if [ -s /var/lib/hyperv/.kvp_pool_0 ]; then echo "CurrentCoreCount%b%b%b%b48.000%b" "\0" "\0" "\0" "\0" "\0" > /var/lib/hyperv/.kvp_pool_0; fi'
+  shell: bash -c 'if [ ! -s /var/lib/hyperv/.kvp_pool_0 ]; then printf "CurrentCoreCount%b%b%b%b48.000%b" "\0" "\0" "\0" "\0" "\0" > /var/lib/hyperv/.kvp_pool_0; fi'
   become: true
 
 - name: write memory size to /var/lib/hyperv/.kvp_pool_2 (change if memory != 196GB)
