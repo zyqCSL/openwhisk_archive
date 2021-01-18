@@ -45,8 +45,8 @@ import scala.io.Source
 import java.nio.file.{Paths, Files} // yanqi, check file exists
 // yanqi, needs to be renamed, otherwise conflit with immutable collection
 import scala.collection.mutable.{Map=>MMap}
-// yanqi, for executing curl commands
-import sys.process._
+// for query azure vm events
+import java.net.URL
 // yanqi, for parsing azure event time
 import java.util.Date
 import java.text.SimpleDateFormat
@@ -113,7 +113,21 @@ class InvokerReactive(
   var cgroupWindowPtr: Int = 0
   var cgroupCheckTime: Long = 0 // in ms
   var vmEventTime: Long = 0
+  // azure scheduled vm events
   var vmEventPrepMs: Long = 5*60*1000 // give controller 5min to prepare for scheduled vm events
+  case class AzureEvent(EventId: String, EventType: String,
+                     ResourceType: String, Resources: Array[String],
+                     EventStatus: String, NotBefore: String,
+                     Description: String, EventSource: String)
+  case class AzureMetaData(DocumentIncarnation: String, Events: Array[AzureEvent])
+  object AzureMetadataJsonProtocol extends DefaultJsonProtocol {
+    implicit val AzureEventFormat = jsonFormat8(AzureEvent)
+    implicit val AzureMetaDataFormat = jsonFormat2(AzureMetaData)
+  }
+  val azureVmEventUrl: String = "http://169.254.169.254/metadata/scheduledevents?api-version=2019-08-01"
+  val azureVmEventUrlProperties = Map(
+    "Metadata" -> "true"
+  )
 
   def get_mean_rsc_usage(): (Double, Long) = {
     var samples: Int = 0
@@ -541,53 +555,45 @@ class InvokerReactive(
       logging.info(this, s"healthPing cgroupCpuUsage, cgroupMemUsage = ${cgroupCpuUsage}, ${cgroupMemUsage}")
       logging.info(this, s"healthPing mean_cgroupCpuUsage, mean_cgroupMemUsage, max_cgroupCpuUsage, max_cgroupMemUsage = ${mean_cpu_usage}, ${mean_mem_usage}, ${max_cpu_usage}, ${max_mem_usage}")
     }
-
-    // check azure schedule event
-    // data structures for parsing curl command
-    case class AzureEvent(EventId: String, EventType: String,
-                     ResourceType: String, Resources: Array[String],
-                     EventStatus: String, NotBefore: String,
-                     Description: String, EventSource: String)
-
-    case class AzureMetaData(DocumentIncarnation: String, Events: Array[AzureEvent])
-
-    object AzureMetadataJsonProtocol extends DefaultJsonProtocol {
-      implicit val AzureEventFormat = jsonFormat8(AzureEvent)
-      implicit val AzureMetaDataFormat = jsonFormat2(AzureMetaData)
-    }
+    // parse azure scheduled vm events    
     import AzureMetadataJsonProtocol._
-    // todo: later add try catch for curl command
-    val jsonMetaData = Seq("curl", "-H", 
-      "Metadata:true", 
-      "http://169.254.169.254/metadata/scheduledevents?api-version=2019-08-01").!!
-    val metaData = jsonMetaData.parseJson.convertTo[AzureMetaData]
+    val meta_data_conn = new URL(azureVmEventUrl).openConnection
+    azureVmEventUrlProperties.foreach({
+      case (name, value) => meta_data_conn.setRequestProperty(name, value)
+    })
+    val json_meta_data = Source.fromInputStream(meta_data_conn.getInputStream).getLines.mkString("\n")    
+    val meta_data = json_meta_data.parseJson.convertTo[AzureMetaData]
 
     // todo: check events in metaData and see if preemt or terminate are scheduled
     // todo: find a way to convert GMT to utc time (from epoch)
-    val eventDf: SimpleDateFormat = new SimpleDateFormat("dd MMM yyyy HH:mm:ss zzz");
+    val event_df: SimpleDateFormat = new SimpleDateFormat("dd MMM yyyy HH:mm:ss zzz");
     var i: Int = 0
     var cur_ms: Long = System.currentTimeMillis()
-    var event_min_ms: Long = 0
-    metaData.Events.foreach { e: AzureEvent =>
+    var event_earliest_ms: Long = 0
+    var event_earliest_str: String = ""
+    meta_data.Events.foreach { e: AzureEvent =>
       if(e.EventType == "Freeze" || e.EventType == "Reboot" || 
          e.EventType == "Redeploy" || e.EventType == "Preempt" ||
          e.EventType == "Terminate") {
-        val dateTimeString: String = e.NotBefore.split(", ")(1)
-        val date: Date = eventDf.parse(dateTimeString);
+        val date_time_str: String = e.NotBefore.split(", ")(1)
+        val date: Date = event_df.parse(date_time_str);
         val event_ms: Long = date.getTime();
-        if(event_ms >= cur_ms && (event_min_ms == 0 || event_min_ms > event_ms)) {
-          event_min_ms = event_ms
+        if(event_ms >= cur_ms && (event_earliest_ms == 0 || event_earliest_ms > event_ms)) {
+          event_earliest_ms = event_ms
+          event_earliest_str = date_time_str
         }
       }
     }
-    if(event_min_ms > 0) {
-      vmEventTime = event_min_ms
-    } else if(event_min_ms == 0 && cur_ms - vmEventTime >= 60*1000) {
+    if(event_earliest_ms > 0) {
+      vmEventTime = event_earliest_ms
+    } else if(event_earliest_ms == 0 && cur_ms - vmEventTime >= 60*1000) {
       // give previous vm event 60s grace period
       vmEventTime = 0
     }
-    
     var vm_event_sched: Boolean = vmEventTime > 0 && (vmEventTime - cur_ms <= vmEventPrepMs)
+    if(vm_event_sched) {
+      logging.info(this, s"vmEvent scheduled at = ${event_earliest_str}, ${vmEventTime - cur_ms}s in the future")
+    }
 
     // send the health ping
     healthProducer.send("health", PingMessage(
