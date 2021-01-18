@@ -560,7 +560,7 @@ class InvokerReactive(
     val jsonMetaData = Seq("curl", "-H", 
       "Metadata:true", 
       "http://169.254.169.254/metadata/scheduledevents?api-version=2019-08-01").!!
-    val metaData = azureMetaData.parseJson.convertTo[AzureMetaData]
+    val metaData = jsonMetaData.parseJson.convertTo[AzureMetaData]
 
     // todo: check events in metaData and see if preemt or terminate are scheduled
     // todo: find a way to convert GMT to utc time (from epoch)
