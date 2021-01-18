@@ -119,8 +119,8 @@ class InvokerReactive(
                      ResourceType: String, Resources: Array[String],
                      EventStatus: String, NotBefore: String,
                      Description: String, EventSource: String)
-  case class AzureMetaData(DocumentIncarnation: String, Events: Array[AzureEvent])
-  object AzureMetadataJsonProtocol extends DefaultJsonProtocol {
+  case class AzureMetaData(DocumentIncarnation: Long, Events: Array[AzureEvent])
+  object AzureMetaDataJsonProtocol extends DefaultJsonProtocol {
     implicit val AzureEventFormat = jsonFormat8(AzureEvent)
     implicit val AzureMetaDataFormat = jsonFormat2(AzureMetaData)
   }
@@ -556,13 +556,13 @@ class InvokerReactive(
       logging.info(this, s"healthPing mean_cgroupCpuUsage, mean_cgroupMemUsage, max_cgroupCpuUsage, max_cgroupMemUsage = ${mean_cpu_usage}, ${mean_mem_usage}, ${max_cpu_usage}, ${max_mem_usage}")
     }
     // parse azure scheduled vm events    
-    import AzureMetadataJsonProtocol._
+    import AzureMetaDataJsonProtocol._
     val meta_data_conn = new URL(azureVmEventUrl).openConnection
     azureVmEventUrlProperties.foreach({
       case (name, value) => meta_data_conn.setRequestProperty(name, value)
     })
     val json_meta_data = Source.fromInputStream(meta_data_conn.getInputStream).getLines.mkString("\n")
-    logging.info(this, s"json_meta_data = ${json_meta_data}")    
+    // logging.info(this, s"json_meta_data = ${json_meta_data}")    
     val meta_data = json_meta_data.parseJson.convertTo[AzureMetaData]
 
     // todo: check events in metaData and see if preemt or terminate are scheduled
