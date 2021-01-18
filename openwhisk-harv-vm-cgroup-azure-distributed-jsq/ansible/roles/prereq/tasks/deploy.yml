@@ -28,17 +28,24 @@
   when: pip_result.rc != 0
 
 # new, yanqi
-- name: set up /var/lib/hyperv/.kvp_pool_0
+- name: set up /var/lib/hyperv/.kvp_pool_0 (cpu info)
   shell: "touch /var/lib/hyperv/.kvp_pool_0"
   become: true
 
-- name: write core number to /var/lib/hyperv/.kvp_pool_0 (change if core != 48)
-  shell: bash -c 'echo 48 > /var/lib/hyperv/.kvp_pool_0'
+- name: set up /var/lib/hyperv/.kvp_pool_2 (mem info)
+  shell: "touch /var/lib/hyperv/.kvp_pool_2"
   become: true
 
-- name: write memory size to /var/lib/hyperv/.kvp_pool_0 (change if memory != 196GB)
-  shell: bash -c 'echo 200704  >> /var/lib/hyperv/.kvp_pool_0'
+- name: write core number to /var/lib/hyperv/.kvp_pool_0 (change if core != 48)
+  shell: bash -c 'if [ ! -s /var/lib/hyperv/.kvp_pool_0 ]; then printf "CurrentCoreCount%b%b%b%b48.000%b" "\0" "\0" "\0" "\0" "\0" > /var/lib/hyperv/.kvp_pool_0; fi'
   become: true
+
+- name: write memory size to /var/lib/hyperv/.kvp_pool_2 (change if memory != 196GB)
+  shell: bash -c 'printf "CurrentMemoryMB%b%b%b%b200704%b" "\0" "\0" "\0" "\0" "\0" > /var/lib/hyperv/.kvp_pool_2'
+  become: true
+
+- name : set up Azure metadata service
+  shell: curl -H Metadata:true http://169.254.169.254/metadata/scheduledevents?api-version=2019-08-01
 
 - name: update apt index (1st)
   shell: "apt-get update"

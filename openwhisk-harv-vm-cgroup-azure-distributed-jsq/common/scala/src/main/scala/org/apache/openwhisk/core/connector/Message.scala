@@ -171,7 +171,7 @@ object AcknowledegmentMessage extends DefaultJsonProtocol {
 }
 
 // yanqi, add rsc info to PingMessage, core/cpu number and memory (in MB)
-case class PingMessage(instance: InvokerInstanceId, cpu: Int, memory: Int) extends Message {
+case class PingMessage(instance: InvokerInstanceId, cpu: Double, memory: Long) extends Message {
   override def serialize = PingMessage.serdes.write(this).compactPrint
 }
 

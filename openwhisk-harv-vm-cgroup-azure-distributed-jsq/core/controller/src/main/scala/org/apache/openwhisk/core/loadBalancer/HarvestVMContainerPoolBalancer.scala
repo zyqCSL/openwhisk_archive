@@ -363,18 +363,18 @@ class HarvestVMContainerPoolBalancer(
   override protected def releaseInvoker(invoker: InvokerInstanceId, entry: ActivationEntry) = {
     // schedulingState.invokerSlots
     //   .lift(invoker.toInt)
-    //   .foreach(_.releaseConcurrent(entry.fullyQualifiedEntityName, entry.maxConcurrent, entry.memoryLimit.toMB.toInt))
+    //   .foreach(_.releaseConcurrent(entry.fullyQualifiedEntityName, entry.maxConcurrent, entry.memoryLimit.toMB.toLong))
 
     // logging.info(
     //       this,
     //       s"In releaseInvoker (for grep in-use) invoker id = ${invoker.toInt}")
     
     if(schedulingState.usedResources.contains(invoker.toInt)) {
-      schedulingState.usedResources(invoker.toInt).release(entry.cpuUtil, entry.memoryLimit.toMB.toInt, entry.maxConcurrent, entry.fullyQualifiedEntityName)
+      schedulingState.usedResources(invoker.toInt).release(entry.cpuUtil, entry.memoryLimit.toMB.toLong, entry.maxConcurrent, entry.fullyQualifiedEntityName)
     }
     // schedulingState.usedResources
     //   .lift(invoker.toInt)
-    //   .foreach(_.release(entry.cpuUtil, entry.memoryLimit.toMB.toInt, entry.maxConcurrent, entry.fullyQualifiedEntityName))
+    //   .foreach(_.release(entry.cpuUtil, entry.memoryLimit.toMB.toLong, entry.maxConcurrent, entry.fullyQualifiedEntityName))
   }
 }
 
@@ -553,7 +553,7 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
     usedResources: Map[Int, InvokerResourceUsage],
     reqCpu: Double,
     cpuLimit: Double,
-    reqMemory: Int,
+    reqMemory: Long,
     clusterSize: Int)(implicit logging: Logging, transId: TransactionId): Option[(InvokerInstanceId, Boolean)] = {
     val numInvokers = invokers.size
 
@@ -565,7 +565,7 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
                                                                      displayedName = Some("fake_ul"), 
                                                                      userMemory = ByteSize(0, SizeUnits.BYTE))
       var unloaded_cpu_left: Double = 0.0
-      var unloaded_mem_left: Int = 0
+      var unloaded_mem_left: Long = 0
       var unloaded_score: Double = 0.0  // scored rsc (weighted sum of rsc and memory)
 
       // in case the sytem is overloaded, choose the invoker that is least loaded after receiving this function
@@ -576,7 +576,7 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
                                                                      displayedName = Some("fake_l"), 
                                                                      userMemory = ByteSize(0, SizeUnits.BYTE))
       var loaded_cpu_left: Double = 0.0
-      var loaded_mem_left: Int = 0
+      var loaded_mem_left: Long = 0
       var loaded_score: Double = 0.0  // scored rsc (weighted sum of rsc and memory)
 
       // make sure that invoker's total rsc (cpu) must be greater than container's total resource
@@ -677,9 +677,9 @@ class ConcurrencySlot(val maxConcurrent: Int) {
   }
 }
 
-class InvokerResourceUsage(var _cpu: Double, var _memory: Int, var _id: Int, var _cpu_coeff: Double, var _mem_coeff: Double)(implicit logging: Logging) {
+class InvokerResourceUsage(var _cpu: Double, var _memory: Long, var _id: Int, var _cpu_coeff: Double, var _mem_coeff: Double)(implicit logging: Logging) {
   protected var cpu: Double = _cpu
-  protected var memory: Int = _memory
+  protected var memory: Long = _memory
   protected val id: Int = _id
 
   // coefficients for scoring invokers
@@ -696,7 +696,7 @@ class InvokerResourceUsage(var _cpu: Double, var _memory: Int, var _id: Int, var
    * @return true if there is enough resource
    */
   protected var actionConcurrentSlotsMap: MMap[FullyQualifiedEntityName, ConcurrencySlot] = MMap.empty[FullyQualifiedEntityName, ConcurrencySlot]
-  def acquire(totalCpu: Double, totalMemory: Int, reqCpu:Double, reqMemory:Int, 
+  def acquire(totalCpu: Double, totalMemory: Long, reqCpu:Double, reqMemory:Long, 
               maxConcurrent: Int, actionId: FullyQualifiedEntityName): Boolean = {
     var ret = false
     this.synchronized {
@@ -738,7 +738,7 @@ class InvokerResourceUsage(var _cpu: Double, var _memory: Int, var _id: Int, var
   /**
    * force to acquire resources for an invocation, even if invoker is overloaded
    */
-  def forceAcquire(reqCpu:Double, reqMemory:Int, maxConcurrent: Int, actionId: FullyQualifiedEntityName) {
+  def forceAcquire(reqCpu:Double, reqMemory:Long, maxConcurrent: Int, actionId: FullyQualifiedEntityName) {
     this.synchronized {
       if(maxConcurrent == 1) {
         cpu = cpu + reqCpu
@@ -760,7 +760,7 @@ class InvokerResourceUsage(var _cpu: Double, var _memory: Int, var _id: Int, var
   /**
    * return (avail_cpu, avail_mem, if_need_no_more_rsc)
    */
-  def reportAvailResources(totalCpu: Double, totalMemory: Int, maxConcurrent: Int, actionId: FullyQualifiedEntityName) = {
+  def reportAvailResources(totalCpu: Double, totalMemory: Long, maxConcurrent: Int, actionId: FullyQualifiedEntityName) = {
     this.synchronized {
       var leftcpu = totalCpu - cpu
       var leftmem = totalMemory - memory
@@ -773,12 +773,12 @@ class InvokerResourceUsage(var _cpu: Double, var _memory: Int, var _id: Int, var
   /**
    * return (left_cpu, left_mem, node_score) (left resources on the invoker after subtracting the requested)
    */
-  def reportLeftResources(totalCpu: Double, totalMemory: Int, reqCpu: Double, reqMemory: Int, maxConcurrent: Int, actionId: FullyQualifiedEntityName) = {
+  def reportLeftResources(totalCpu: Double, totalMemory: Long, reqCpu: Double, reqMemory: Long, maxConcurrent: Int, actionId: FullyQualifiedEntityName) = {
     this.synchronized {
       var leftcpu = totalCpu - cpu - reqCpu // assume that cpu is always additive
       var cpuutil: Double = (cpu + reqCpu)/totalCpu
 
-      var leftmem: Int = 0
+      var leftmem: Long = 0
       var memutil: Double = 0.0
       if(maxConcurrent > 1 && actionConcurrentSlotsMap.contains(actionId) && actionConcurrentSlotsMap(actionId).remaining > 1) {
         // there's container with spare capacity, no more memory needed 
@@ -798,7 +798,7 @@ class InvokerResourceUsage(var _cpu: Double, var _memory: Int, var _id: Int, var
   /**
    * release resources when invocation completes
    */
-  def release(reqCpu: Double, reqMemory: Int, maxConcurrent: Int, actionId: FullyQualifiedEntityName) {
+  def release(reqCpu: Double, reqMemory: Long, maxConcurrent: Int, actionId: FullyQualifiedEntityName) {
     var release_mem = true
     this.synchronized {
       if(maxConcurrent > 1) {

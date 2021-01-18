@@ -88,6 +88,10 @@ class InvokerReactive(
 
   private val logsProvider = SpiLoader.get[LogStoreProvider].instance(actorSystem)
   logging.info(this, s"LogStoreProvider: ${logsProvider.getClass}")
+  
+  /***** rsc accounting, yanqi *****/
+  val coreNumPath = "/hypervkvp/.kvp_pool_0"
+  val memoryMBPath = "/hypervkvp/.kvp_pool_2"
 
   /**
    * Factory used by the ContainerProxy to physically create a new container.
@@ -324,18 +328,43 @@ class InvokerReactive(
   // currently for test only
   private val healthProducer = msgProvider.getProducer(config)
   Scheduler.scheduleWaitAtMost(1.seconds)(() => {
-    var cpu = 1
-    var memory = 2048
+    var cpu: Double = 1.0
+    var memory: Long = 2048
 
-    if(Files.exists(Paths.get("/hypervkvp/.kvp_pool_0"))) {
-      val buffer = Source.fromFile("/hypervkvp/.kvp_pool_0")
-      val lines = buffer.getLines.toArray
-
-      if(lines.size == 2) {
-        cpu = lines(0).toInt
-        memory = lines(1).toInt
+    // check total available cpus
+    if(Files.exists(Paths.get(coreNumPath))) {
+      val buffer_kvp = Source.fromFile(coreNumPath)
+      val lines_kvp = buffer_kvp.getLines.toArray
+      
+      if(lines_kvp.size == 1) {
+        val kv_arr = lines_kvp(0).split("\u0000").filter(_ != "")
+        var i: Int = 0
+        while(i < kv_arr.length) {
+            if(kv_arr(i) == "CurrentCoreCount") {
+                cpu = kv_arr(i + 1).trim().toDouble
+            }
+            i = i + 1
+        }
       }
-      buffer.close
+      buffer_kvp.close
+    }
+
+    // check total available memory
+    if(Files.exists(Paths.get(memoryMBPath))) {
+      val buffer_kvp = Source.fromFile(memoryMBPath)
+      val lines_kvp = buffer_kvp.getLines.toArray
+      
+      if(lines_kvp.size == 1) {
+        val kv_arr = lines_kvp(0).split("\u0000").filter(_ != "")
+        var i: Int = 0
+        while(i < kv_arr.length) {
+            if(kv_arr(i) == "CurrentMemoryMB") {
+                memory = kv_arr(i + 1).trim().toLong
+            }
+            i = i + 1
+        }
+      }
+      buffer_kvp.close
     }
     
     healthProducer.send("health", PingMessage(instance, cpu, memory)).andThen {

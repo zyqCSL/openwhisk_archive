@@ -200,7 +200,7 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
 
   // yanqi, add rsc
   // Register a new invoker
-  def registerInvoker(instanceId: InvokerInstanceId, cpu: Int, memory: Int): ActorRef = {
+  def registerInvoker(instanceId: InvokerInstanceId, cpu: Double, memory: Long): ActorRef = {
     logging.info(this, s"registered a new invoker: invoker${instanceId.toInt}")(TransactionId.invokerHealth)
 
     // Grow the underlying status sequence to the size needed to contain the incoming ping. Dummy values are created

@@ -84,7 +84,8 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
   // yanqi, make invoker check its resources periodically
   val resourceCheckInterval: Long = 1000 // check resource every 1000ms
   var prevCheckTime: Long = 0 
-  val resourcePath = "/hypervkvp/.kvp_pool_0"
+  val coreNumPath = "/hypervkvp/.kvp_pool_0"
+  val memoryMBPath = "/hypervkvp/.kvp_pool_2"
 
   prewarmConfig.foreach { config =>
     logging.info(this, s"pre-warming ${config.count} ${config.exec.kind} ${config.cpuLimit.toString} ${config.memoryLimit.toString}")(
@@ -359,15 +360,40 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
       var memory: Int = 2048
 
       prevCheckTime = curms
-      if(Files.exists(Paths.get(resourcePath))) {
-        val buffer = Source.fromFile(resourcePath)
-        val lines = buffer.getLines.toArray
+      // check total available cpus
+      if(Files.exists(Paths.get(coreNumPath))) {
+        val buffer_kvp = Source.fromFile(coreNumPath)
+        val lines_kvp = buffer_kvp.getLines.toArray
         
-        if(lines.size == 2) {
-          cpu = lines(0).toDouble
-          memory = lines(1).toInt
+        if(lines_kvp.size == 1) {
+          val kv_arr = lines_kvp(0).split("\u0000").filter(_ != "")
+          var i: Int = 0
+          while(i < kv_arr.length) {
+              if(kv_arr(i) == "CurrentCoreCount") {
+                  cpu = kv_arr(i + 1).trim().toDouble
+              }
+              i = i + 1
+          }
         }
-        buffer.close
+        buffer_kvp.close
+      }
+
+      // check total available memory
+      if(Files.exists(Paths.get(memoryMBPath))) {
+        val buffer_kvp = Source.fromFile(memoryMBPath)
+        val lines_kvp = buffer_kvp.getLines.toArray
+        
+        if(lines_kvp.size == 1) {
+          val kv_arr = lines_kvp(0).split("\u0000").filter(_ != "")
+          var i: Int = 0
+          while(i < kv_arr.length) {
+              if(kv_arr(i) == "CurrentMemoryMB") {
+                  memory = kv_arr(i + 1).trim().toLong
+              }
+              i = i + 1
+          }
+        }
+        buffer_kvp.close
       }
   
       if(cpu != availCpu || memory != availMemory.toMB) {

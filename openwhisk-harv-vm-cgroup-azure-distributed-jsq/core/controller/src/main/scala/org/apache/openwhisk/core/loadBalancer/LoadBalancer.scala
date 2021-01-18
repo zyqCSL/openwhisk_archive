@@ -35,15 +35,15 @@ import scala.concurrent.duration._
  * @param id a unique instance identifier for the invoker
  * @param status it status (healthy, unhealthy, offline)
  */
-class InvokerHealth(val id: InvokerInstanceId, val status: InvokerState, val cpu: Int, val memory :Int) {
+class InvokerHealth(val id: InvokerInstanceId, val status: InvokerState, val cpu: Double, val memory: Long) {
   override def equals(obj: scala.Any): Boolean = obj match {
     case that: InvokerHealth => that.id == this.id && that.status == this.status && that.cpu == this.cpu && that.memory == this.memory
     case _                   => false
   }
 
-  def hasCapacity(req_cpu: Double, req_memory: Int) = (req_cpu <= this.cpu && req_memory <= this.memory)
+  def hasCapacity(req_cpu: Double, req_memory: Long) = (req_cpu <= this.cpu && req_memory <= this.memory)
   def hasCpuCapacity(req_cpu: Double) = req_cpu <= this.cpu
-  def hasMemCapacity(req_memory: Int) = req_memory <= this.memory
+  def hasMemCapacity(req_memory: Long) = req_memory <= this.memory
 
   override def toString = s"InvokerHealth($id, $status)"
 }
