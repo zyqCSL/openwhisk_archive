@@ -561,7 +561,8 @@ class InvokerReactive(
     azureVmEventUrlProperties.foreach({
       case (name, value) => meta_data_conn.setRequestProperty(name, value)
     })
-    val json_meta_data = Source.fromInputStream(meta_data_conn.getInputStream).getLines.mkString("\n")    
+    val json_meta_data = Source.fromInputStream(meta_data_conn.getInputStream).getLines.mkString("\n")
+    logging.info(this, s"json_meta_data = ${json_meta_data}")    
     val meta_data = json_meta_data.parseJson.convertTo[AzureMetaData]
 
     // todo: check events in metaData and see if preemt or terminate are scheduled
