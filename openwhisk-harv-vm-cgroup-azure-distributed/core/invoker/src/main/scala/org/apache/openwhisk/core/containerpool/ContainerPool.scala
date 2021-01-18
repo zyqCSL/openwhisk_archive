@@ -85,7 +85,8 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
   val resourceCheckInterval: Long = 1000 // check resource every 1000ms
   var prevCheckTime: Long = 0 // in ms
   var cgroupCheckTime: Long = 0 // in ns
-  val resourcePath = "/hypervkvp/.kvp_pool_0"
+  val coreNumPath = "/hypervkvp/.kvp_pool_0"
+  val memoryMBPath = "/hypervkvp/.kvp_pool_2"
   val cgroupCpuPath = "/sys/fs/cgroup/cpuacct/cgroup_harvest_vm/cpuacct.usage"
   val cgroupMemPath = "/sys/fs/cgroup/memory/cgroup_harvest_vm/memory.stat"
   var cgroupCpuTime: Long = 0   // in ns
@@ -467,14 +468,38 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
       var cpu: Double = 1.0
       var memory: Long = 2048
 
-      // check total available resources
-      if(Files.exists(Paths.get(resourcePath))) {
-        val buffer_kvp = Source.fromFile(resourcePath)
+      // check total available cpus
+      if(Files.exists(Paths.get(coreNumPath))) {
+        val buffer_kvp = Source.fromFile(coreNumPath)
         val lines_kvp = buffer_kvp.getLines.toArray
         
-        if(lines_kvp.size == 2) {
-          cpu = lines_kvp(0).toDouble
-          memory = lines_kvp(1).toLong
+        if(lines_kvp.size == 1) {
+          val kv_arr = lines_kvp(0).split("\0").filter(_ != "")
+          var i: Int = 0
+          while(i < kv_arr.length) {
+              if(kv_arr(i) == "CurrentCoreCount") {
+                  cpu = kv_arr(i + 1).trim().toDouble
+              }
+              i = i + 1
+          }
+        }
+        buffer_kvp.close
+      }
+
+      // check total available memory
+      if(Files.exists(Paths.get(memoryMBPath))) {
+        val buffer_kvp = Source.fromFile(memoryMBPath)
+        val lines_kvp = buffer_kvp.getLines.toArray
+        
+        if(lines_kvp.size == 1) {
+          val kv_arr = lines_kvp(0).split("\0").filter(_ != "")
+          var i: Int = 0
+          while(i < kv_arr.length) {
+              if(kv_arr(i) == "CurrentMemoryMB") {
+                  memory = kv_arr(i + 1).trim().toLong
+              }
+              i = i + 1
+          }
         }
         buffer_kvp.close
       }

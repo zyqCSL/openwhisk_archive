@@ -541,8 +541,8 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
         val this_invoker = invokers(nextIndex)
         val this_invoker_id = this_invoker.id.toInt
         nextIndex = (nextIndex + stepSize) % numInvokers
-        
-        if(this_invoker.status.isUsable) {
+        // stop sending requests to unusable invoker and invoker with vm events scheduled
+        if(this_invoker.status.isUsable && !this_invoker.vmEventScheduled) {
           // val (leftcpu, leftmem, score) = usedResources(this_invoker_id).reportLeftResources(
           //  this_invoker.cpu.toDouble/clusterSize, 
           //  this_invoker.memory/clusterSize, reqCpu, reqMemory, maxConcurrent, fqn)

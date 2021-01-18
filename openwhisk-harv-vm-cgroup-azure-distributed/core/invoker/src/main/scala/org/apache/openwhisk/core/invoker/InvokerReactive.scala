@@ -45,6 +45,11 @@ import scala.io.Source
 import java.nio.file.{Paths, Files} // yanqi, check file exists
 // yanqi, needs to be renamed, otherwise conflit with immutable collection
 import scala.collection.mutable.{Map=>MMap}
+// yanqi, for executing curl commands
+import sys.process._
+// yanqi, for parsing azure event time
+import java.util.Date
+import java.text.SimpleDateFormat
 
 object InvokerReactive extends InvokerProvider {
 
@@ -95,7 +100,8 @@ class InvokerReactive(
   logging.info(this, s"LogStoreProvider: ${logsProvider.getClass}")
 
   /***** rsc accounting, yanqi *****/
-  val resourcePath = "/hypervkvp/.kvp_pool_0"
+  val coreNumPath = "/hypervkvp/.kvp_pool_0"
+  val memoryMBPath = "/hypervkvp/.kvp_pool_2"
   val cgroupCpuPath = "/sys/fs/cgroup/cpuacct/cgroup_harvest_vm/cpuacct.usage"
   val cgroupMemPath = "/sys/fs/cgroup/memory/cgroup_harvest_vm/memory.stat"
   var cgroupCpuTime: Long = 0   // in ns
@@ -106,6 +112,8 @@ class InvokerReactive(
   var cgroupWindow: Array[(Double, Long)] = Array.fill(cgroupWindowSize)((-1.0, -1: Long))
   var cgroupWindowPtr: Int = 0
   var cgroupCheckTime: Long = 0 // in ms
+  var vmEventTime: Long = 0
+  var vmEventPrepMs: Long = 5*60*1000 // give controller 5min to prepare for scheduled vm events
 
   def get_mean_rsc_usage(): (Double, Long) = {
     var samples: Int = 0
@@ -425,24 +433,48 @@ class InvokerReactive(
   // plus the gossip information telling each controller how many controllers there are in the system
   private val healthProducer = msgProvider.getProducer(config)
   Scheduler.scheduleWaitAtMost(1.seconds)(() => {
-    var cpu: Int = 1
+    var cpu: Double = 1.0
     var memory: Long = 2048
 
     controllerIdMap.prune(controllerMapResetInterval)
     var controller_set: Set[String] = controllerIdMap.toSet()
 
-    // check total available resources
-    if(Files.exists(Paths.get(resourcePath))) {
-      val buffer_kvp = Source.fromFile(resourcePath)
+    // check total available cpus
+    if(Files.exists(Paths.get(coreNumPath))) {
+      val buffer_kvp = Source.fromFile(coreNumPath)
       val lines_kvp = buffer_kvp.getLines.toArray
       
-      if(lines_kvp.size == 2) {
-        cpu = lines_kvp(0).toInt
-        memory = lines_kvp(1).toLong
+      if(lines_kvp.size == 1) {
+        val kv_arr = lines_kvp(0).split("\0").filter(_ != "")
+        var i: Int = 0
+        while(i < kv_arr.length) {
+            if(kv_arr(i) == "CurrentCoreCount") {
+                cpu = kv_arr(i + 1).trim().toDouble
+            }
+            i = i + 1
+        }
       }
       buffer_kvp.close
     }
 
+    // check total available memory
+    if(Files.exists(Paths.get(memoryMBPath))) {
+      val buffer_kvp = Source.fromFile(memoryMBPath)
+      val lines_kvp = buffer_kvp.getLines.toArray
+      
+      if(lines_kvp.size == 1) {
+        val kv_arr = lines_kvp(0).split("\0").filter(_ != "")
+        var i: Int = 0
+        while(i < kv_arr.length) {
+            if(kv_arr(i) == "CurrentMemoryMB") {
+                memory = kv_arr(i + 1).trim().toLong
+            }
+            i = i + 1
+        }
+      }
+      buffer_kvp.close
+    }
+    
     var rscFileExists: Boolean = true
     // check actual cpu usage
     if(Files.exists(Paths.get(cgroupCpuPath))) {
@@ -509,11 +541,59 @@ class InvokerReactive(
       logging.info(this, s"healthPing cgroupCpuUsage, cgroupMemUsage = ${cgroupCpuUsage}, ${cgroupMemUsage}")
       logging.info(this, s"healthPing mean_cgroupCpuUsage, mean_cgroupMemUsage, max_cgroupCpuUsage, max_cgroupMemUsage = ${mean_cpu_usage}, ${mean_mem_usage}, ${max_cpu_usage}, ${max_mem_usage}")
     }
+
+    // check azure schedule event
+    // data structures for parsing curl command
+    case class AzureEvent(EventId: String, EventType: String,
+                     ResourceType: String, Resources: Array[String],
+                     EventStatus: String, NotBefore: String,
+                     Description: String, EventSource: String)
+
+    case class AzureMetaData(DocumentIncarnation: String, Events: Array[AzureEvent])
+
+    object AzureMetadataJsonProtocol extends DefaultJsonProtocol {
+      implicit val AzureEventFormat = jsonFormat8(AzureEvent)
+      implicit val AzureMetaDataFormat = jsonFormat2(AzureMetaData)
+    }
+    import AzureMetadataJsonProtocol._
+    // todo: later add try catch for curl command
+    val jsonMetaData = Seq("curl", "-H", 
+      "Metadata:true", 
+      "http://169.254.169.254/metadata/scheduledevents?api-version=2019-08-01").!!
+    val metaData = azureMetaData.parseJson.convertTo[AzureMetaData]
+
+    // todo: check events in metaData and see if preemt or terminate are scheduled
+    // todo: find a way to convert GMT to utc time (from epoch)
+    val eventDf: SimpleDateFormat = new SimpleDateFormat("dd MMM yyyy HH:mm:ss zzz");
+    var i: Int = 0
+    var cur_ms: Long = System.currentTimeMillis()
+    var event_min_ms: Long = 0
+    metaData.Events.foreach { e: AzureEvent =>
+      if(e.EventType == "Freeze" || e.EventType == "Reboot" || 
+         e.EventType == "Redeploy" || e.EventType == "Preempt" ||
+         e.EventType == "Terminate") {
+        val dateTimeString: String = e.NotBefore.split(", ")(1)
+        val date: Date = eventDf.parse(dateTimeString);
+        val event_ms: Long = date.getTime();
+        if(event_ms >= cur_ms && (event_min_ms == 0 || event_min_ms > event_ms)) {
+          event_min_ms = event_ms
+        }
+      }
+    }
+    if(event_min_ms > 0) {
+      vmEventTime = event_min_ms
+    } else if(event_min_ms == 0 && cur_ms - vmEventTime >= 60*1000) {
+      // give previous vm event 60s grace period
+      vmEventTime = 0
+    }
     
+    var vm_event_sched: Boolean = vmEventTime > 0 && (vmEventTime - cur_ms <= vmEventPrepMs)
+
+    // send the health ping
     healthProducer.send("health", PingMessage(
         instance, cpu, memory, 
         max_cpu_usage, max_mem_usage,
-        controller_set)).andThen {
+        controller_set, vm_event_sched)).andThen {
       case Failure(t) => logging.error(this, s"failed to ping the controller: $t")
       // case Success(_) => logging.info(this, s"heartbeat -- cpu: ${cpu}, memory ${memory}, linenum ${lines.size}")
     }

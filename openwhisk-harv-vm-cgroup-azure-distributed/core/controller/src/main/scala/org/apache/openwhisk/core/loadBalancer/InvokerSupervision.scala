@@ -121,7 +121,7 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
       val invoker = instanceToRef.getOrElse(p.instance.toInt, 
         registerInvoker(p.instance, p.cpu, p.memory, 
           p.cpuUsage, p.memUsage, 
-          p.controllerSet))
+          p.controllerSet, p.vmEventScheduled))
       instanceToRef = instanceToRef.updated(p.instance.toInt, invoker)
 
       // For the case when the invoker was restarted and got a new displayed name
@@ -131,7 +131,7 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
         status = status.updated(p.instance.toInt, new InvokerHealth(
           p.instance, oldHealth.status, p.cpu, p.memory, 
           p.cpuUsage, p.memUsage,
-          p.controllerSet))
+          p.controllerSet, p.vmEventScheduled))
         refToInstance = refToInstance.updated(invoker, p.instance)
       }
 
@@ -143,11 +143,12 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
           status(p.instance.toInt).memory != p.memory || 
           status(p.instance.toInt).cpuUsage != p.cpuUsage || 
           status(p.instance.toInt).memUsage != p.memUsage || 
-          status(p.instance.toInt).controllerSet != p.controllerSet)) {
+          status(p.instance.toInt).controllerSet != p.controllerSet) || 
+          status(p.instance.toInt).vmEventScheduled != p.vmEventScheduled) {
         status = status.updated(p.instance.toInt, 
           new InvokerHealth(p.instance, oldHealth.status, 
             p.cpu, p.memory, p.cpuUsage, p.memUsage,
-            p.controllerSet))
+            p.controllerSet, p.vmEventScheduled))
         logStatus()
       }
       invoker.forward(p)
@@ -164,7 +165,8 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
         status = status.updated(instance.toInt, new InvokerHealth(instance, currentState, 
           status(instance.toInt).cpu, status(instance.toInt).memory,
           status(instance.toInt).cpuUsage, status(instance.toInt).memUsage,
-          status(instance.toInt).controllerSet))
+          status(instance.toInt).controllerSet,
+          status(instance.toInt).vmEventScheduled))
       }
       logStatus()
 
@@ -174,7 +176,8 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
         status = status.updated(instance.toInt, new InvokerHealth(instance, newState, 
           status(instance.toInt).cpu, status(instance.toInt).memory,
           status(instance.toInt).cpuUsage, status(instance.toInt).memUsage,
-          status(instance.toInt).controllerSet))
+          status(instance.toInt).controllerSet,
+          status(instance.toInt).vmEventScheduled))
       }
       logStatus()
 
@@ -185,7 +188,7 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
   def logStatus(): Unit = {
     monitor.foreach(_ ! CurrentInvokerPoolState(status))
     // yanqi, add rsc to logs
-    val pretty = status.map(i => s"${i.id.toInt} -> ${i.status} cpu:${i.cpu} memory:${i.memory}MB cpuUsage:${i.cpuUsage} memUsage:${i.memUsage}MB")
+    val pretty = status.map(i => s"${i.id.toInt} -> ${i.status} cpu:${i.cpu} memory:${i.memory}MB cpuUsage:${i.cpuUsage} memUsage:${i.memUsage}MB vmEventScheduled:${i.vmEventScheduled}")
     logging.info(this, s"invoker status changed to ${pretty.mkString(", ")}")
   }
 
@@ -220,9 +223,9 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
 
   // yanqi, add rsc
   // Register a new invoker
-  def registerInvoker(instanceId: InvokerInstanceId, cpu: Int, memory: Long, 
+  def registerInvoker(instanceId: InvokerInstanceId, cpu: Double, memory: Long, 
       cpuUsage: Double, memUsage: Long,
-      controllerSet: Set[String]): ActorRef = {
+      controllerSet: Set[String], vmEventScheduled: Boolean): ActorRef = {
     logging.info(this, s"registered a new invoker: invoker${instanceId.toInt}")(TransactionId.invokerHealth)
 
     // Grow the underlying status sequence to the size needed to contain the incoming ping. Dummy values are created
@@ -232,9 +235,9 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
       instanceId.toInt + 1,
       // yanqi, for now, consider 0 rsc on unregistered invokers
       i => new InvokerHealth(InvokerInstanceId(i, userMemory = instanceId.userMemory), Offline, 
-        0, 0, 0.0, 0, Set[String]() ))
+        0, 0, 0.0, 0, Set[String](), false ))
     status = status.updated(instanceId.toInt, new InvokerHealth(
-      instanceId, Offline, cpu, memory, cpuUsage, memUsage, controllerSet))
+      instanceId, Offline, cpu, memory, cpuUsage, memUsage, controllerSet, vmEventScheduled))
 
     val ref = childFactory(context, instanceId)
     ref ! SubscribeTransitionCallBack(self) // register for state change events
