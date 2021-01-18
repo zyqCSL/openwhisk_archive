@@ -474,7 +474,7 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
         val lines_kvp = buffer_kvp.getLines.toArray
         
         if(lines_kvp.size == 1) {
-          val kv_arr = lines_kvp(0).split("\0").filter(_ != "")
+          val kv_arr = lines_kvp(0).split("\u0000").filter(_ != "")
           var i: Int = 0
           while(i < kv_arr.length) {
               if(kv_arr(i) == "CurrentCoreCount") {
@@ -492,7 +492,7 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
         val lines_kvp = buffer_kvp.getLines.toArray
         
         if(lines_kvp.size == 1) {
-          val kv_arr = lines_kvp(0).split("\0").filter(_ != "")
+          val kv_arr = lines_kvp(0).split("\u0000").filter(_ != "")
           var i: Int = 0
           while(i < kv_arr.length) {
               if(kv_arr(i) == "CurrentMemoryMB") {
