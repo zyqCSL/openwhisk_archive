@@ -357,7 +357,7 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
     val curms: Long = System.currentTimeMillis()
     if(curms - prevCheckTime >= resourceCheckInterval) {
       var cpu: Double = 1.0
-      var memory: Int = 2048
+      var memory: Long = 2048
 
       prevCheckTime = curms
       // check total available cpus
