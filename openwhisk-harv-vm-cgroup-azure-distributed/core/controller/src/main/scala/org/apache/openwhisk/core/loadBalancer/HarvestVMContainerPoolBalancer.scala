@@ -208,7 +208,7 @@ class HarvestVMContainerPoolBalancer(
   }
 
   val maxCpuUtil: Double = 0.75
-  val maxMemUtil: Double = 0.8
+  val maxMemUtil: Double = 0.75
 
   /** State needed for scheduling. */
   val schedulingState = HarvestVMContainerPoolBalancerState()(lbConfig)
@@ -452,7 +452,7 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
       } else primes
     })
 
-  protected val cpuCoeff: Double = 3.0
+  protected val cpuCoeff: Double = 1.0
   protected val memCoeff: Double = 1.0
 
   /**
