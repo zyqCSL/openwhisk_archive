@@ -57,7 +57,7 @@ class InvokerHealth(val id: InvokerInstanceId, val status: InvokerState,
     cpuCoeff: Double, memCoeff: Double): (Double, Long, Double) = {
       val availCpu: Double = cpu * maxCpuUtil - cpuUsage
       val availMem: Long = (memory * maxMemUtil).toLong - memUsage
-      val score: Double = cpuUsage/cpu * cpuCoeff + memUsage*1.0/memory * memCoeff
+      val score: Double = cpuUsage/(cpu*maxCpuUtil) * cpuCoeff + memUsage*1.0/(memory*maxMemUtil) * memCoeff
       (availCpu, availMem, score)
   }
 
