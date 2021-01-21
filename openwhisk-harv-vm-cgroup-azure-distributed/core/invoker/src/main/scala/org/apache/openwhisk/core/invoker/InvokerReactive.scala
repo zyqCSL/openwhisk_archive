@@ -572,6 +572,8 @@ class InvokerReactive(
     var cur_ms: Long = System.currentTimeMillis()
     var event_earliest_ms: Long = 0
     var event_earliest_str: String = ""
+    var event_type: String = ""
+    var event_id: String = ""
     meta_data.Events.foreach { e: AzureEvent =>
       if(e.EventType == "Freeze" || e.EventType == "Reboot" || 
          e.EventType == "Redeploy" || e.EventType == "Preempt" ||
@@ -582,6 +584,8 @@ class InvokerReactive(
         if(event_ms >= cur_ms && (event_earliest_ms == 0 || event_earliest_ms > event_ms)) {
           event_earliest_ms = event_ms
           event_earliest_str = date_time_str
+          event_type = e.EventType
+          event_id = e.EventId
         }
       }
     }
@@ -593,7 +597,7 @@ class InvokerReactive(
     }
     var vm_event_sched: Boolean = vmEventTime > 0 && (vmEventTime - cur_ms <= vmEventPrepMs)
     if(vm_event_sched) {
-      logging.info(this, s"vmEvent scheduled at = ${event_earliest_str}, ${vmEventTime - cur_ms}s in the future")
+      logging.info(this, s"vmEvent ${event_type} id ${event_id} scheduled at = ${event_earliest_str}, ${(vmEventTime - cur_ms)/1000}s in the future")
     }
 
     // send the health ping
