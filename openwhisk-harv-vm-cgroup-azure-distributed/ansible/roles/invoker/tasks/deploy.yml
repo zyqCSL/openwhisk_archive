@@ -19,6 +19,9 @@
 
 - import_tasks: docker_login.yml
 
+- name : set up Azure metadata service
+  shell: curl -H Metadata:true http://169.254.169.254/metadata/scheduledevents?api-version=2019-08-01
+
 - name: get invoker name and index
   set_fact:
     invoker_name: "{{ name_prefix ~ ((invoker_index_base | int) + host_group.index(inventory_hostname)) }}"
