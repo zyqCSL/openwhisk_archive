@@ -58,3 +58,12 @@ WARNING: Unmatched cancel notification for request id 226
 2021.01.18 19:40:16 WARN  code navigation does not work for the file '/home/zhangyanqi/Research/Projects/openwhisk_archive/openwhisk-harv-vm-cgroup-azure-distributed-jsq/core/controller/src/main/scala/org/apache/openwhisk/core/loadBalancer/HarvestVMContainerPoolBalancer.scala' because it doesn't belong to a build target.
 2021.01.18 19:40:16 WARN  no build target for: /home/zhangyanqi/Research/Projects/openwhisk_archive/openwhisk-harv-vm-cgroup-azure-distributed-jsq/core/controller/src/main/scala/org/apache/openwhisk/core/loadBalancer/HarvestVMContainerPoolBalancer.scala
 2021.01.18 20:04:16 INFO  shutting down Metals
+[0m2021.01.20 18:23:19 INFO  Started: Metals version 0.9.10 in workspace '/home/zhangyanqi/Research/Projects/openwhisk_archive/openwhisk-harv-vm-cgroup-azure-distributed-jsq' for client vscode 1.52.1.[0m
+[0m2021.01.20 18:23:21 INFO  time: initialize in 2.02s[0m
+[0m2021.01.20 18:23:21 WARN  resetting database: /home/zhangyanqi/Research/Projects/openwhisk_archive/openwhisk-harv-vm-cgroup-azure-distributed-jsq/.metals/metals.h2.db[0m
+[0m2021.01.20 18:23:21 WARN  Build server is not auto-connectable.[0m
+[0m2021.01.20 18:24:03 INFO  no build target: using presentation compiler with only scala-library[0m
+[0m2021.01.20 18:24:08 WARN  no build target for: /home/zhangyanqi/Research/Projects/openwhisk_archive/openwhisk-harv-vm-cgroup-azure-distributed-jsq/core/controller/src/main/scala/org/apache/openwhisk/core/loadBalancer/HarvestVMContainerPoolBalancer.scala[0m
+Jan 20, 2021 6:24:08 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 1
+[0m2021.01.21 00:18:26 INFO  shutting down Metals[0m

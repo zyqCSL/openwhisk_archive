@@ -28,29 +28,30 @@
   when: pip_result.rc != 0
 
 # new, yanqi
-- name: set up /var/lib/hyperv/.kvp_pool_0 (cpu info)
-  shell: "touch /var/lib/hyperv/.kvp_pool_0"
-  become: true
+#----- setting up .kvp_pool_x is moved to azure vm startup scripts -----#
+# - name: set up /var/lib/hyperv/.kvp_pool_0 (cpu info)
+#   shell: "touch /var/lib/hyperv/.kvp_pool_0"
+#   become: true
 
-- name: set up /var/lib/hyperv/.kvp_pool_2 (mem info)
-  shell: "touch /var/lib/hyperv/.kvp_pool_2"
-  become: true
+# - name: set up /var/lib/hyperv/.kvp_pool_2 (mem info)
+#   shell: "touch /var/lib/hyperv/.kvp_pool_2"
+#   become: true
 
-- name: write core number to /var/lib/hyperv/.kvp_pool_0 (change if core != 32)
-  shell: bash -c 'if [ ! -s /var/lib/hyperv/.kvp_pool_0 ]; then printf "CurrentCoreCount%b%b%b%b32.000%b" "\0" "\0" "\0" "\0" "\0" > /var/lib/hyperv/.kvp_pool_0; fi'
-  become: true
+# - name: write core number to /var/lib/hyperv/.kvp_pool_0 (change if core != 32)
+#   shell: bash -c 'if [ ! -s /var/lib/hyperv/.kvp_pool_0 ]; then printf "CurrentCoreCount%b%b%b%b32.000%b" "\0" "\0" "\0" "\0" "\0" > /var/lib/hyperv/.kvp_pool_0; fi'
+#   become: true
 
-- name: change .kvp_pool_0 permissions
-  shell: "chmod 777 /var/lib/hyperv/.kvp_pool_0"
-  become: true
+# - name: change .kvp_pool_0 permissions
+#   shell: "chmod 777 /var/lib/hyperv/.kvp_pool_0"
+#   become: true
 
-- name: write memory size to /var/lib/hyperv/.kvp_pool_2 (change if memory != 128GB)
-  shell: bash -c 'printf "CurrentMemoryMB%b%b%b%b131072%b" "\0" "\0" "\0" "\0" "\0" > /var/lib/hyperv/.kvp_pool_2'
-  become: true
+# - name: write memory size to /var/lib/hyperv/.kvp_pool_2 (change if memory != 128GB)
+#   shell: bash -c 'printf "CurrentMemoryMB%b%b%b%b131072%b" "\0" "\0" "\0" "\0" "\0" > /var/lib/hyperv/.kvp_pool_2'
+#   become: true
 
-- name: change .kvp_pool_2 permissions
-  shell: "chmod 777 /var/lib/hyperv/.kvp_pool_2"
-  become: true
+# - name: change .kvp_pool_2 permissions
+#   shell: "chmod 777 /var/lib/hyperv/.kvp_pool_2"
+#   become: true
 
 - name : set up Azure metadata service
   shell: curl -H Metadata:true http://169.254.169.254/metadata/scheduledevents?api-version=2019-08-01
@@ -69,11 +70,11 @@
 #     version: 2.10.0
 #   become: true
 
-- name: install docker for python
-  pip:
-    name: docker
-    version: 4.0.2
-  become: true
+# - name: install docker for python
+#   pip:
+#     name: docker
+#     version: 4.0.2
+#   become: true
 
 # - name: install httplib2
 #   pip:
