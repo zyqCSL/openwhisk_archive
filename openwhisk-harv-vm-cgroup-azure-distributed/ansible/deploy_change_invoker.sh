@@ -1,3 +1,3 @@
 # the hosts file should only include the newly added invokers
 # and the config for other components
-ansible-playbook openwhisk_invoker.yml
+ansible-playbook openwhisk_new_invoker.yml

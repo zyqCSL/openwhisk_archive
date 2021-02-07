@@ -21,5 +21,5 @@
 # It assumes that wipe.yml have being deployed at least once.
 
 
-- import_playbook: invoker.yml
+- import_playbook: new_invoker.yml
   when: not lean
