@@ -95,13 +95,15 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
   }))
 
   /* states related to invoker set of each function, yanqi*/
+  // keeps the (home_invoker, num_live_invokers, home_version) for each function
+  protected [loadBalancer] val functionHomeInvoker = TrieMap[FullyQualifiedEntityName, (Int, Int, Long)]()
   // keeps the (num_invokers, version_num) for each function
   protected[loadBalancer] val functionInvokerSet = TrieMap[FullyQualifiedEntityName, (Int, Long)]()
   // keeps the data structure used to estimate load of each function
   // only accessed in loadProcessor
   protected[loadBalancer] val functionInvokerSetState = MMap[FullyQualifiedEntityName, ActionInvokerSetState]()
   protected val invokerSetMinShrinkInterval: Long = 60 * 1000 // in ms
-  case class InvokerSetChangeRequest(actionId: FullyQualifiedEntityName,
+  case class InvokerSetChangeRequest(actionId: FullyQualifiedEntityName, homeInvoker: Int,
     isShrink: Boolean, numInvokers: Int, version: Long)
   // use another process for updating load records
   private[loadBalancer] val invokerSetProcessor = actorSystem.actorOf(Props(new Actor {
@@ -109,12 +111,13 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
       case req: InvokerSetChangeRequest =>
 
         // logging.info(this, s"In CommonLoadBalancer dataProcessor") 
-        val (update, num_invokers, new_version) = functionInvokerSetState.getOrElseUpdate(req.actionId, 
+        val (update_home, update_size, home_invoker, num_invokers, home_version, size_version) 
+          = functionInvokerSetState.getOrElseUpdate(req.actionId, 
                 new ActionInvokerSetState(invokerSetMinShrinkInterval))
                 .updateNumInvokers(req.numInvokers, req.isShrink, req.version)
         // logging.info(this, s"loadProcessor record set up") 
         if(update) {
-          functionInvokerSet.update(req.actionId, (num_invokers, new_version))
+          functionInvokerSet.update(req.actionId, (num_invokers, size_version))
           logging.info(this, s"function ${req.actionId.asString} num_invokers = ${num_invokers} version = ${new_version}")
         }
         // logging.info(this, s"loadProcessor functionLoad updated") 
