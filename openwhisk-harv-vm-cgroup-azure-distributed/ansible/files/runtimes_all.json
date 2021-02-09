@@ -1,0 +1,2224 @@
+{
+    "runtimes": {
+        "nodejs": [
+            {
+                "kind": "nodejs:6",
+                "default": false,
+                "image": {
+                    "prefix": "openwhisk",
+                    "name": "nodejs6action",
+                    "tag": "nightly"
+                },
+                "deprecated": false,
+                "attached": {
+                    "attachmentName": "codefile",
+                    "attachmentType": "text/plain"
+                }
+            },
+            {
+                "kind": "nodejs:8",
+                "default": false,
+                "image": {
+                    "prefix": "openwhisk",
+                    "name": "action-nodejs-v8",
+                    "tag": "nightly"
+                },
+                "deprecated": false,
+                "attached": {
+                    "attachmentName": "codefile",
+                    "attachmentType": "text/plain"
+                }
+            },
+            {
+                "kind": "nodejs:10",
+                "default": true,
+                "image": {
+                    "prefix": "openwhisk",
+                    "name": "action-nodejs-v10",
+                    "tag": "nightly"
+                },
+                "deprecated": false,
+                "attached": {
+                    "attachmentName": "codefile",
+                    "attachmentType": "text/plain"
+                },
+                "stemCells": [
+                    {
+                        "count": 2,
+                        "memory": "256 MB"
+                    }
+                ]
+            },
+            {
+                "kind": "nodejs:12",
+                "default": false,
+                "image": {
+                    "prefix": "openwhisk",
+                    "name": "action-nodejs-v12",
+                    "tag": "nightly"
+                },
+                "deprecated": false,
+                "attached": {
+                    "attachmentName": "codefile",
+                    "attachmentType": "text/plain"
+                }
+            }
+        ],
+        "python": [
+            {
+                "kind": "python:2",
+                "default": false,
+                "image": {
+                    "prefix": "openwhisk",
+                    "name": "python2action",
+                    "tag": "1.13.0-incubating"
+                },
+                "deprecated": false,
+                "attached": {
+                    "attachmentName": "codefile",
+                    "attachmentType": "text/plain"
+                }
+            },
+            {
+                "kind": "python:3",
+                "default": true,
+                "image": {
+                    "prefix": "openwhisk",
+                    "name": "python3action",
+                    "tag": "nightly"
+                },
+                "deprecated": false,
+                "attached": {
+                    "attachmentName": "codefile",
+                    "attachmentType": "text/plain"
+                }
+            }
+        ],
+        "swift": [
+            {
+                "kind": "swift:4.2",
+                "default": true,
+                "image": {
+                    "prefix": "openwhisk",
+                    "name": "action-swift-v4.2",
+                    "tag": "nightly"
+                },
+                "deprecated": false,
+                "attached": {
+                    "attachmentName": "codefile",
+                    "attachmentType": "text/plain"
+                }
+            }
+        ],
+        "java": [
+            {
+                "kind": "java:8",
+                "default": true,
+                "image": {
+                    "prefix": "openwhisk",
+                    "name": "java8action",
+                    "tag": "nightly"
+                },
+                "deprecated": false,
+                "attached": {
+                    "attachmentName": "codefile",
+                    "attachmentType": "text/plain"
+                },
+                "requireMain": true
+            }
+        ],
+        "php": [
+            {
+                "kind": "php:7.3",
+                "default": true,
+                "deprecated": false,
+                "image": {
+                    "prefix": "openwhisk",
+                    "name": "action-php-v7.3",
+                    "tag": "nightly"
+                },
+                "attached": {
+                    "attachmentName": "codefile",
+                    "attachmentType": "text/plain"
+                }
+            }
+        ],
+        "ruby": [
+            {
+                "kind": "ruby:2.5",
+                "default": true,
+                "deprecated": false,
+                "attached": {
+                    "attachmentName": "codefile",
+                    "attachmentType": "text/plain"
+                },
+                "image": {
+                    "prefix": "openwhisk",
+                    "name": "action-ruby-v2.5",
+                    "tag": "nightly"
+                }
+            }
+        ],
+        "go": [
+            {
+                "kind": "go:1.11",
+                "default": true,
+                "deprecated": false,
+                "attached": {
+                    "attachmentName": "codefile",
+                    "attachmentType": "text/plain"
+                },
+                "image": {
+                    "prefix": "openwhisk",
+                    "name": "actionloop-golang-v1.11",
+                    "tag": "nightly"
+                }
+            }
+        ],
+        "dotnet": [
+            {
+                "kind": "dotnet:2.2",
+                "default": true,
+                "deprecated": false,
+                "requireMain": true,
+                "image": {
+                    "prefix": "openwhisk",
+                    "name": "action-dotnet-v2.2",
+                    "tag": "nightly"
+                },
+                "attached": {
+                    "attachmentName": "codefile",
+                    "attachmentType": "text/plain"
+                }
+            }
+        ],
+        "ballerina": [
+            {
+                "kind": "ballerina:0.990",
+                "default": true,
+                "image": {
+                    "prefix": "openwhisk",
+                    "name": "action-ballerina-v0.990.2",
+                    "tag": "nightly"
+                },
+                "deprecated": false,
+                "attached": {
+                    "attachmentName": "codefile",
+                    "attachmentType": "text/plain"
+                }
+            }
+        ]
+    },
+    "blackboxes": [
+        {
+            "prefix": "openwhisk",
+            "name": "dockerskeleton",
+            "tag": "nightly"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "python3_openwhisk",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-0",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-1",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-2",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-3",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-4",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-5",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-6",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-7",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-8",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-9",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-10",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-11",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-12",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-13",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-14",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-15",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-16",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-17",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-18",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-19",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-20",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-21",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-22",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-23",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-24",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-25",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-26",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-27",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-28",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-29",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-30",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-31",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-32",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-33",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-34",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-35",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-36",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-37",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-38",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-39",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-40",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-41",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-42",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-43",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-44",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-45",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-46",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-47",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-48",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "chameleon_openwhisk-49",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-0",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-1",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-2",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-3",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-4",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-5",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-6",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-7",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-8",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-9",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-10",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-11",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-12",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-13",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-14",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-15",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-16",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-17",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-18",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-19",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-20",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-21",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-22",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-23",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-24",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-25",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-26",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-27",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-28",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-29",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-30",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-31",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-32",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-33",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-34",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-35",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-36",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-37",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-38",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-39",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-40",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-41",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-42",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-43",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-44",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-45",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-46",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-47",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-48",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "image_processing_openwhisk-49",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-0",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-1",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-2",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-3",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-4",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-5",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-6",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-7",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-8",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-9",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-10",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-11",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-12",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-13",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-14",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-15",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-16",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-17",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-18",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-19",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-20",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-21",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-22",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-23",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-24",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-25",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-26",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-27",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-28",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-29",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-30",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-31",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-32",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-33",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-34",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-35",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-36",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-37",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-38",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-39",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-40",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-41",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-42",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-43",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-44",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-45",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-46",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-47",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-48",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "matmult_openwhisk-49",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-0",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-1",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-2",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-3",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-4",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-5",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-6",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-7",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-8",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-9",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-10",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-11",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-12",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-13",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-14",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-15",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-16",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-17",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-18",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-19",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-20",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-21",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-22",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-23",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-24",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-25",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-26",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-27",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-28",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-29",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-30",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-31",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-32",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-33",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-34",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-35",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-36",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-37",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-38",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-39",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-40",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-41",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-42",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-43",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-44",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-45",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-46",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-47",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-48",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "linpack_openwhisk-49",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-0",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-1",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-2",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-3",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-4",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-5",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-6",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-7",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-8",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-9",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-10",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-11",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-12",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-13",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-14",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-15",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-16",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-17",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-18",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-19",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-20",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-21",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-22",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-23",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-24",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-25",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-26",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-27",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-28",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-29",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-30",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-31",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-32",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-33",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-34",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-35",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-36",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-37",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-38",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-39",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-40",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-41",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-42",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-43",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-44",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-45",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-46",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-47",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-48",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "pyaes_openwhisk-49",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-0",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-1",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-2",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-3",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-4",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-5",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-6",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-7",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-8",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-9",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-10",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-11",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-12",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-13",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-14",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-15",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-16",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-17",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-18",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-19",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-20",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-21",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-22",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-23",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-24",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-25",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-26",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-27",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-28",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-29",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-30",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-31",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-32",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-33",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-34",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-35",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-36",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-37",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-38",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-39",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-40",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-41",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-42",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-43",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-44",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-45",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-46",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-47",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-48",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "video_process_openwhisk-49",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-0",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-1",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-2",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-3",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-4",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-5",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-6",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-7",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-8",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-9",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-10",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-11",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-12",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-13",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-14",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-15",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-16",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-17",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-18",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-19",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-20",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-21",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-22",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-23",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-24",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-25",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-26",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-27",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-28",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-29",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-30",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-31",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-32",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-33",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-34",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-35",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-36",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-37",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-38",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-39",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-40",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-41",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-42",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-43",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-44",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-45",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-46",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-47",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-48",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "lr_review_openwhisk-49",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-0",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-1",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-2",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-3",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-4",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-5",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-6",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-7",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-8",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-9",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-10",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-11",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-12",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-13",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-14",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-15",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-16",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-17",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-18",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-19",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-20",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-21",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-22",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-23",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-24",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-25",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-26",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-27",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-28",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-29",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-30",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-31",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-32",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-33",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-34",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-35",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-36",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-37",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-38",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-39",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-40",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-41",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-42",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-43",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-44",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-45",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-46",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-47",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-48",
+            "tag": "latest"
+        },
+        {
+            "prefix": "sailresearch",
+            "name": "mobilenet_openwhisk-49",
+            "tag": "latest"
+        }
+    ]
+}

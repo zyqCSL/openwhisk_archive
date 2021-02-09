@@ -210,6 +210,10 @@ class HarvestVMContainerPoolBalancer(
   val maxCpuUtil: Double = 0.7
   val maxMemUtil: Double = 0.7
 
+  // the num_live_inv_before / num_live_inv_now that triggers recompute of homeInvoker
+  val homeInvokerUpperRatio = 1.2
+  val homeInvokerLowerRatio = 0.8
+
   /** State needed for scheduling. */
   val schedulingState = HarvestVMContainerPoolBalancerState()(lbConfig)
 
@@ -268,16 +272,63 @@ class HarvestVMContainerPoolBalancer(
 
     val isBlackboxInvocation = action.exec.pull
     val actionType = if (!isBlackboxInvocation) "managed" else "blackbox"
-    val (invokersToUse, stepSizes) =
+    val (invokersToUseAll, stepSizes) =
       if (!isBlackboxInvocation) (schedulingState.managedInvokers, schedulingState.managedStepSizes)
       else (schedulingState.blackboxInvokers, schedulingState.blackboxStepSizes)
+    // only use healthy invokers
+    val invokersToUse = invokersToUseAll.filter(_.status.isUsable)
     var updateCpuLimit: Boolean = false
     var cpuUtil = functionCpuUtil.getOrElse(action.fullyQualifiedName(true), 0.0)
     val chosen = if (invokersToUse.nonEmpty) {
       val hash = HarvestVMContainerPoolBalancer.generateHash(msg.user.namespace.name, action.fullyQualifiedName(false))
-      val homeInvoker = hash % invokersToUse.size
-      val stepSize = stepSizes(hash % stepSizes.size)
+      
+      // todo: homeInvoker should be read from records each time. Make step_size=1 (invariant to change of cluster size)
+      // val homeInvoker = hash % invokersToUse.size
+      // val stepSize = stepSizes(hash % stepSizes.size)
+      // homeInvoker is the true id of home invoker
+      var (homeInvoker: Int, homeNumLiveInvokers: Int, homeVersion: Long) = functionHomeInvoker.getOrElse(
+        action.fullyQualifiedName(true), (-1: Int, 0: Int, 0: Long))
+      var stepSize: Int = 1
+      var curNumLiveInvokers: Int = invokersToUse.size
+      var updateHomeInvoker: Boolean = false
 
+      // the index of home invoker
+      var homeInvokerIndex: Int = -1
+      var homeInvokerFound: Boolean = false
+
+      // check if homeInvoker needs recomputed
+      // conditions are #cur_live_invoker > 0 and one of the following:
+      // 1) homeInvoker is undecided
+      // 2) #cur_live_invoker/#prev_live_inovker >= or <= predefined thresholds
+      if(curNumLiveInvokers > 0 && 
+         (homeInvoker < 0 || (homeNumLiveInvokers > 0 && (
+         curNumLiveInvokers*1.0/homeNumLiveInvokers >= homeInvokerUpperRatio ||
+         curNumLiveInvokers*1.0/homeNumLiveInvokers <= homeInvokerLowerRatio)) ) ) {
+        updateHomeInvoker = true
+        homeInvokerIndex = hash % curNumLiveInvokers
+        homeInvokerFound = true
+        homeInvoker = invokersToUse(homeInvokerIndex).id.toInt      
+        invokerSetProcessor ! InvokerSetHomeRequest(action.fullyQualifiedName(true),
+          homeInvoker, curNumLiveInvokers, homeVersion)
+      }
+
+      // find the actual index of homeInvoker
+      // and when homeInvoker fails, find the invoker with smallest id larger than homeInvoker
+      if(!homeInvokerFound) {
+        var invokerIndex: Int = 0
+        while(invokerIndex < invokersToUse.size && !homeInvokerFound) {
+          if(invokersToUse(invokerIndex).id.toInt >= homeInvoker) {
+            homeInvokerIndex = invokerIndex
+            homeInvokerFound = true
+          }
+          invokerIndex = invokerIndex + 1
+        }
+        // if homeInvoker is still not found, pick the first invoker in the list
+        // this corresponds to the case that all invokers with id >= homeInvoker fails
+        if(!homeInvokerFound)
+          homeInvokerIndex = 0
+      }
+      
       // yanqi, check if we can use the distribution
       var cpuLimit: Double = functionCpuLimit.getOrElse(action.fullyQualifiedName(true), 0.0)
       // if(functionCpuUtil.contains(action.fullyQualifiedName(true)))
@@ -300,7 +351,7 @@ class HarvestVMContainerPoolBalancer(
       var estimatedRps: Double = functionLoad.getOrElse(action.fullyQualifiedName(true), 0.0)
       estimatedRps = estimatedRps * clusterSize
 
-      var (invokerSetSize: Int, invokerSetVersion: Long) = functionInvokerSet.getOrElse(
+      var (invokerSetSize: Int, sizeVersion: Long) = functionInvokerSet.getOrElse(
         action.fullyQualifiedName(true), (1: Int, 0: Long))
 
       val invoker: Option[(InvokerInstanceId, Boolean, Int)] = HarvestVMContainerPoolBalancer.schedule(
@@ -315,7 +366,7 @@ class HarvestVMContainerPoolBalancer(
         maxCpuUtil,
         maxMemUtil,
         estimatedRps,
-        homeInvoker,
+        homeInvokerIndex,
         stepSize,
         invokerSetSize)
 
@@ -337,8 +388,8 @@ class HarvestVMContainerPoolBalancer(
       // update invoker set size
       if(nextInvokerSetSize > 0) {
         var isShrink: Boolean = nextInvokerSetSize < invokerSetSize
-        invokerSetProcessor ! InvokerSetChangeRequest(action.fullyQualifiedName(true),
-          isShrink, nextInvokerSetSize, invokerSetVersion)
+        invokerSetProcessor ! InvokerSetSizeRequest(action.fullyQualifiedName(true),
+          updateHomeInvoker, isShrink, nextInvokerSetSize, sizeVersion)
       }
 
       invoker.map(_._1)

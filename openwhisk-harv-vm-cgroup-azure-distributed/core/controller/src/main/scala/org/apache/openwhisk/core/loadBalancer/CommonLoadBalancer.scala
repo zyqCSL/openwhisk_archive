@@ -96,29 +96,47 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
 
   /* states related to invoker set of each function, yanqi*/
   // keeps the (home_invoker, num_live_invokers, home_version) for each function
-  protected [loadBalancer] val functionHomeInvoker = TrieMap[FullyQualifiedEntityName, (Int, Int, Long)]()
-  // keeps the (num_invokers, version_num) for each function
+  // home_invoker is the real id (not index) of the home invoker of the function
+  protected[loadBalancer] val functionHomeInvoker = TrieMap[FullyQualifiedEntityName, (Int, Int, Long)]()
+  // keeps the (num_invokers, size_version) for each function
   protected[loadBalancer] val functionInvokerSet = TrieMap[FullyQualifiedEntityName, (Int, Long)]()
   // keeps the data structure used to estimate load of each function
   // only accessed in loadProcessor
   protected[loadBalancer] val functionInvokerSetState = MMap[FullyQualifiedEntityName, ActionInvokerSetState]()
-  protected val invokerSetMinShrinkInterval: Long = 60 * 1000 // in ms
-  case class InvokerSetChangeRequest(actionId: FullyQualifiedEntityName, homeInvoker: Int,
-    isShrink: Boolean, numInvokers: Int, version: Long)
+  protected val invokerSetMinShrinkInterval: Long = 30 * 1000 // in ms
+  // request for changing size of invoker set
+  case class InvokerSetSizeRequest(actionId: FullyQualifiedEntityName, 
+    updateHome: Boolean, isShrink: Boolean, 
+    numInvokers: Int, version: Long)
+  // request for changing home of invoker set
+  case class InvokerSetHomeRequest(actionId: FullyQualifiedEntityName, 
+    homeInvoker: Int, numLiveInvokers: Int, version: Long)
   // use another process for updating load records
   private[loadBalancer] val invokerSetProcessor = actorSystem.actorOf(Props(new Actor {
     override def receive: Receive = {
-      case req: InvokerSetChangeRequest =>
-
+      case req: InvokerSetSizeRequest =>
         // logging.info(this, s"In CommonLoadBalancer dataProcessor") 
-        val (update_home, update_size, home_invoker, num_invokers, home_version, size_version) 
-          = functionInvokerSetState.getOrElseUpdate(req.actionId, 
+        val (update_size, num_invokers, size_version) 
+            = functionInvokerSetState.getOrElseUpdate(req.actionId, 
                 new ActionInvokerSetState(invokerSetMinShrinkInterval))
-                .updateNumInvokers(req.numInvokers, req.isShrink, req.version)
+                .updateNumInvokers(req.numInvokers, req.updateHome, req.isShrink, req.version)
         // logging.info(this, s"loadProcessor record set up") 
-        if(update) {
+        if(update_size) {
           functionInvokerSet.update(req.actionId, (num_invokers, size_version))
-          logging.info(this, s"function ${req.actionId.asString} num_invokers = ${num_invokers} version = ${new_version}")
+          logging.info(this, s"function ${req.actionId.asString} num_invokers=${num_invokers} version=${size_version}")
+        }
+        // logging.info(this, s"loadProcessor functionLoad updated") 
+      
+      case req: InvokerSetHomeRequest =>
+        // logging.info(this, s"In CommonLoadBalancer dataProcessor") 
+        val (update_home, home_invoker, num_live_invokers, home_version) 
+            = functionInvokerSetState.getOrElseUpdate(req.actionId, 
+                new ActionInvokerSetState(invokerSetMinShrinkInterval))
+                .updateHomeInvoker(req.homeInvoker, req.numLiveInvokers, req.version)
+        // logging.info(this, s"loadProcessor record set up") 
+        if(update_home) {
+          functionHomeInvoker.update(req.actionId, (home_invoker, num_live_invokers, home_version))
+          logging.info(this, s"function ${req.actionId.asString} home_invoker=${home_invoker} num_live_invokers=${num_live_invokers} version=${home_version}")
         }
         // logging.info(this, s"loadProcessor functionLoad updated") 
     }
