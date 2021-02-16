@@ -81,7 +81,10 @@ case class ActivationRequest(msg: ActivationMessage, invoker: InvokerInstanceId)
 case class InvocationFinishedMessage(invokerInstance: InvokerInstanceId, result: InvocationFinishedResult)
 
 // Sent to a monitor if the state changed
-case class CurrentInvokerPoolState(newState: IndexedSeq[InvokerHealth])
+// stateTransit, invokerId & becomeUsable are for consistent hashing
+// check logStatus for detail
+case class CurrentInvokerPoolState(newState: IndexedSeq[InvokerHealth], 
+  stateTransit: Boolean, invokerId: Int, becomeUsable: Boolean)
 
 // Data stored in the Invoker
 final case class InvokerInfo(buffer: RingBuffer[InvocationFinishedResult])
@@ -97,10 +100,12 @@ final case class InvokerInfo(buffer: RingBuffer[InvocationFinishedResult])
  * Note: An Invoker that never sends an initial Ping will not be considered
  * by the InvokerPool and thus might not be caught by monitoring.
  */
+// yanqi: add maxInvokerId to form the ring in consistent hashing
 class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef,
                   sendActivationToInvoker: (ActivationMessage, InvokerInstanceId) => Future[RecordMetadata],
                   pingConsumer: MessageConsumer,
-                  monitor: Option[ActorRef])
+                  monitor: Option[ActorRef],
+                  maxInvokerId: Int)
     extends Actor {
 
   import InvokerState._
@@ -115,6 +120,13 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
   var instanceToRef = immutable.Map.empty[Int, ActorRef]
   var refToInstance = immutable.Map.empty[ActorRef, InvokerInstanceId]
   var status = IndexedSeq[InvokerHealth]()
+  
+  // register dummy invokers to form the ring in consistent hashing
+  status = padToIndexed(
+      status,
+      maxInvokerId + 1,
+      i => new InvokerHealth(InvokerInstanceId(i, userMemory = ByteSize.fromString("1024M")), Offline, 
+        0.0, 0: Long, 0.0, 0: Long, Set[String](), false ))
 
   def receive: Receive = {
     case p: PingMessage =>
@@ -136,7 +148,10 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
       }
 
       /**
-       * yanqi. Checks if resource allocation has changed. If so, update status and notify controller
+       * Checks if resource allocation has changed. If so, update status and notify controller
+       * In terms of consistent hashing, a PingMessage never indicates a real invoker state change,
+       * since a PingMessage can only either indicate that a healthy invoker is still healthy
+       * or turn an Offline state to Unhealthy (becomes usable if test activation succeeds)
        */
       if (status(p.instance.toInt).status.isUsable && ( 
           status(p.instance.toInt).cpu != p.cpu || 
@@ -149,7 +164,7 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
           new InvokerHealth(p.instance, oldHealth.status, 
             p.cpu, p.memory, p.cpuUsage, p.memUsage,
             p.controllerSet, p.vmEventScheduled))
-        logStatus()
+        logStatus(false, -1, false)
       }
       invoker.forward(p)
 
@@ -160,36 +175,77 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
       instanceToRef.get(msg.invokerInstance.toInt).foreach(_.forward(msg))
 
     case CurrentState(invoker, currentState: InvokerState) =>
+      // CurrentState is sent only once, and then callbacks should all be Transition
+      // theoretically this won't trigger invoker state change either
+      // since registerInvoker starts invoker in Unhealthy state,
+      // while dummy invokers are in Offline state, which are both unusable
+
+      var stateTransit: Boolean = false
+      var invokerId: Int = -1
+      var becomeUsable: Boolean = false
+
       refToInstance.get(invoker).foreach { instance =>
-        // yanqi, keep previous rsc records
+        // check state change for consistent hashing
+        if(status(instance.toInt).status.isUsable && !currentState.isUsable) {
+          stateTransit = true
+          invokerId = instance.toInt
+          becomeUsable = false
+        } else if(!status(instance.toInt).status.isUsable && currentState.isUsable) {
+          stateTransit = true
+          invokerId = instance.toInt
+          becomeUsable = true
+        }
+        // keep previous rsc records
         status = status.updated(instance.toInt, new InvokerHealth(instance, currentState, 
           status(instance.toInt).cpu, status(instance.toInt).memory,
           status(instance.toInt).cpuUsage, status(instance.toInt).memUsage,
           status(instance.toInt).controllerSet,
           status(instance.toInt).vmEventScheduled))
       }
-      logStatus()
+      logStatus(stateTransit, invokerId, becomeUsable)
 
     case Transition(invoker, oldState: InvokerState, newState: InvokerState) =>
+      // notify loadbalancer of usable->unusable and unusable->usable
+      var stateTransit: Boolean = false
+      var invokerId: Int = -1
+      var becomeUsable: Boolean = false
+
       refToInstance.get(invoker).foreach { instance =>
-        // yanqi, keep previous rsc records
+        // check state change for consistent hashing
+        if(oldState.isUsable && !currentState.isUsable) {
+          stateTransit = true
+          invokerId = instance.toInt
+          becomeUsable = false
+        } else if(!oldState.isUsable && currentState.isUsable) {
+          stateTransit = true
+          invokerId = instance.toInt
+          becomeUsable = true
+        }
+        // keep previous rsc records
         status = status.updated(instance.toInt, new InvokerHealth(instance, newState, 
           status(instance.toInt).cpu, status(instance.toInt).memory,
           status(instance.toInt).cpuUsage, status(instance.toInt).memUsage,
           status(instance.toInt).controllerSet,
           status(instance.toInt).vmEventScheduled))
       }
-      logStatus()
+      logStatus(stateTransit, invokerId, becomeUsable)
 
     // this is only used for the internal test action which enabled an invoker to become healthy again
     case msg: ActivationRequest => sendActivationToInvoker(msg.msg, msg.invoker).pipeTo(sender)
   }
 
-  def logStatus(): Unit = {
-    monitor.foreach(_ ! CurrentInvokerPoolState(status))
+  /**
+  * logStatus needs to notify loadbalacer of node departure/arrival, for consistent hashing
+  * @param stateTransit: true if one invoker state changes (invoker departure/arrival)
+  * @param invokerId: id of the invoker whose state changes
+  * @param becomeUsable: true if the invoker becomes usable from unusable, and false otherwise
+  */
+  def logStatus(stateTransit: Boolean, invokerId: Int, becomeUsable: Boolean): Unit = {
+    monitor.foreach(_ ! CurrentInvokerPoolState(status, stateTransit, invokerId, becomeUsable))
     // yanqi, add rsc to logs
-    val pretty = status.map(i => s"${i.id.toInt} -> ${i.status} cpu:${i.cpu} memory:${i.memory}MB cpuUsage:${i.cpuUsage} memUsage:${i.memUsage}MB vmEventScheduled:${i.vmEventScheduled}")
-    logging.info(this, s"invoker status changed to ${pretty.mkString(", ")}")
+    val statusNonOffline = status.filter(_.status.asString != "down")
+    val pretty = statusNonOffline.map(i => s"${i.id.toInt} -> ${i.status} cpu:${i.cpu} memory:${i.memory}MB cpuUsage:${i.cpuUsage} memUsage:${i.memUsage}MB vmEventScheduled:${i.vmEventScheduled}")
+    logging.info(this, s"invoker (non-offline) status changed to ${pretty.mkString(", ")}")
   }
 
   /** Receive Ping messages from invokers. */
@@ -235,7 +291,7 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
       instanceId.toInt + 1,
       // yanqi, for now, consider 0 rsc on unregistered invokers
       i => new InvokerHealth(InvokerInstanceId(i, userMemory = instanceId.userMemory), Offline, 
-        0, 0, 0.0, 0, Set[String](), false ))
+        0.0, 0: Long, 0.0, 0: Long, Set[String](), false ))
     status = status.updated(instanceId.toInt, new InvokerHealth(
       instanceId, Offline, cpu, memory, cpuUsage, memUsage, controllerSet, vmEventScheduled))
 

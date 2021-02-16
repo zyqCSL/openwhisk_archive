@@ -209,10 +209,7 @@ class HarvestVMContainerPoolBalancer(
 
   val maxCpuUtil: Double = 0.7
   val maxMemUtil: Double = 0.7
-
-  // the num_live_inv_before / num_live_inv_now that triggers recompute of homeInvoker
-  val homeInvokerUpperRatio = 1.2
-  val homeInvokerLowerRatio = 0.8
+  // maxInvokerId is defined in CommonLoadBalancer (for consistent hashing)
 
   /** State needed for scheduling. */
   val schedulingState = HarvestVMContainerPoolBalancerState()(lbConfig)
@@ -233,8 +230,14 @@ class HarvestVMContainerPoolBalancer(
     var availableMembers = Set.empty[Member]
 
     override def receive: Receive = {
-      case CurrentInvokerPoolState(newState) =>
+      case CurrentInvokerPoolState(newState, 
+          stateTransit, invokerId, becomeUsable) =>
         schedulingState.updateInvokers(newState)
+        // todo: notify processor about hash ring change
+        if(stateTransit) {
+          invokerSetProcessor ! InvokerSetInvokerStatusRequest(newState,
+            invokerId, becomeUsable)
+        }
 
       // yanqi, can't find in other places 
       // State of the cluster as it is right now
@@ -264,6 +267,41 @@ class HarvestVMContainerPoolBalancer(
   override def invokerHealth(): Future[IndexedSeq[InvokerHealth]] = Future.successful(schedulingState.invokers)
   override def clusterSize: Int = schedulingState.clusterSize
 
+  // todo: a bianry search over usable invokers to find home invoker
+  // find the min(InvokerId >= hashId)
+  def binarySearchHomeInvoker(hashId: Int, usableInvokers: IndexedSeq[InvokerHealth],
+    startIndex: Int, endIndex: Int): Int = {
+    var homeInvoker: Int = -1
+    if(startIndex == endIndex) {
+      homeInvoker = usableInvokers(startIndex).id.toInt
+    } else if(endIndex > startIndex) {
+      var midIndex: Int = (startIndex + endIndex)/2
+      if(usableInvokers(midIndex).id.toInt == hashId) {
+        homeInvoker = usableInvokers(midIndex).id.toInt
+      } else if(usableInvokers(midIndex).id.toInt > hashId) {
+        homeInvoker = binarySearchHomeInvoker(hashId, usableInvokers, startIndex, midIndex)
+      } else {
+        homeInvoker = binarySearchHomeInvoker(hashId, usableInvokers, midIndex + 1, endIndex)
+      }
+    }
+    homeInvoker
+  }
+
+  def findHomeInvoker(hashId: Int, usableInvokers: IndexedSeq[InvokerHealth]): Int = {
+    var homeInvoker: Int = -1
+    // no usable invoker exists
+    if(usableInvokers.size == 0) {
+      homeInvoker = -1
+    } else if(hashId > usableInvokers(usableInvokers.size - 1)) {
+      // > largetst invoker id, use smallest invoker id available (consistent hash ring)
+      homeInvoker = usableInvokers(0).id.toInt
+    } else {
+      // binary search
+      homeInvoker = binarySearchHomeInvoker(hashId, usableInvokers, 0, usableInvokers.size - 1)
+    }
+    homeInvoker
+  }
+
   /** 1. Publish a message to the loadbalancer */
   override def publish(action: ExecutableWhiskActionMetaData, msg: ActivationMessage)(
     implicit transid: TransactionId): Future[Future[Either[ActivationId, WhiskActivation]]] = {
@@ -272,11 +310,11 @@ class HarvestVMContainerPoolBalancer(
 
     val isBlackboxInvocation = action.exec.pull
     val actionType = if (!isBlackboxInvocation) "managed" else "blackbox"
-    val (invokersToUseAll, stepSizes) =
-      if (!isBlackboxInvocation) (schedulingState.managedInvokers, schedulingState.managedStepSizes)
-      else (schedulingState.blackboxInvokers, schedulingState.blackboxStepSizes)
-    // only use healthy invokers
-    val invokersToUse = invokersToUseAll.filter(_.status.isUsable)
+    val (invokersToUse, usableInvokers, usableInvokerToIndexMap, stepSizes) =
+      if (!isBlackboxInvocation) 
+        schedulingState.getManagedInvokersData()
+      else 
+        schedulingState.getBlackboxInvokersData()
     var updateCpuLimit: Boolean = false
     var cpuUtil = functionCpuUtil.getOrElse(action.fullyQualifiedName(true), 0.0)
     val chosen = if (invokersToUse.nonEmpty) {
@@ -286,49 +324,23 @@ class HarvestVMContainerPoolBalancer(
       // val homeInvoker = hash % invokersToUse.size
       // val stepSize = stepSizes(hash % stepSizes.size)
       // homeInvoker is the true id of home invoker
-      var (homeInvoker: Int, homeNumLiveInvokers: Int, homeVersion: Long) = functionHomeInvoker.getOrElse(
-        action.fullyQualifiedName(true), (-1: Int, 0: Int, 0: Long))
-      var stepSize: Int = 1
-      var curNumLiveInvokers: Int = invokersToUse.size
-      var updateHomeInvoker: Boolean = false
-
-      // the index of home invoker
-      var homeInvokerIndex: Int = -1
-      var homeInvokerFound: Boolean = false
-
-      // check if homeInvoker needs recomputed
-      // conditions are #cur_live_invoker > 0 and one of the following:
-      // 1) homeInvoker is undecided
-      // 2) #cur_live_invoker/#prev_live_inovker >= or <= predefined thresholds
-      if(curNumLiveInvokers > 0 && 
-         (homeInvoker < 0 || (homeNumLiveInvokers > 0 && (
-         curNumLiveInvokers*1.0/homeNumLiveInvokers >= homeInvokerUpperRatio ||
-         curNumLiveInvokers*1.0/homeNumLiveInvokers <= homeInvokerLowerRatio)) ) ) {
-        updateHomeInvoker = true
-        homeInvokerIndex = hash % curNumLiveInvokers
-        homeInvokerFound = true
-        homeInvoker = invokersToUse(homeInvokerIndex).id.toInt      
-        invokerSetProcessor ! InvokerSetHomeRequest(action.fullyQualifiedName(true),
-          homeInvoker, curNumLiveInvokers, homeVersion)
-      }
-
-      // find the actual index of homeInvoker
-      // and when homeInvoker fails, find the invoker with smallest id larger than homeInvoker
-      if(!homeInvokerFound) {
-        var invokerIndex: Int = 0
-        while(invokerIndex < invokersToUse.size && !homeInvokerFound) {
-          if(invokersToUse(invokerIndex).id.toInt >= homeInvoker) {
-            homeInvokerIndex = invokerIndex
-            homeInvokerFound = true
-          }
-          invokerIndex = invokerIndex + 1
+      var (homeInvoker: Int, hashId: Int) = functionHomeInvoker.getOrElse(
+        action.fullyQualifiedName(true), (-1: Int, -1: Int))
+      if(homeInvoker < 0) {
+        // 1st time to see this function, homeInvoker needs computed
+        hashId = hash % (maxInvokerId + 1)
+        homeInvoker = findHomeInvoker(hashId, usableInvokers)
+        if(homeInvoker >= 0) {
+          // issue request to update home invoker
+          invokerSetProcessor ! InvokerSetNewFunctionRequest(action.fullyQualifiedName(true),
+            homeInvoker, hashId)
+        } else {
+          logging.error(
+          this,
+          s"failed to find a homeInvoker for hashId ${hashId}, #usable invokers=${usableInvokers.size}")
         }
-        // if homeInvoker is still not found, pick the first invoker in the list
-        // this corresponds to the case that all invokers with id >= homeInvoker fails
-        if(!homeInvokerFound)
-          homeInvokerIndex = 0
       }
-      
+      var stepSize: Int = 1      
       // yanqi, check if we can use the distribution
       var cpuLimit: Double = functionCpuLimit.getOrElse(action.fullyQualifiedName(true), 0.0)
       // if(functionCpuUtil.contains(action.fullyQualifiedName(true)))
@@ -351,13 +363,14 @@ class HarvestVMContainerPoolBalancer(
       var estimatedRps: Double = functionLoad.getOrElse(action.fullyQualifiedName(true), 0.0)
       estimatedRps = estimatedRps * clusterSize
 
-      var (invokerSetSize: Int, sizeVersion: Long) = functionInvokerSet.getOrElse(
+      var (invokerSetSize: Int, version: Long) = functionInvokerSet.getOrElse(
         action.fullyQualifiedName(true), (1: Int, 0: Long))
 
       val invoker: Option[(InvokerInstanceId, Boolean, Int)] = HarvestVMContainerPoolBalancer.schedule(
         action.limits.concurrency.maxConcurrent,
         action.fullyQualifiedName(true),
-        invokersToUse,
+        usableInvokers,
+        usableInvokerToIndexMap,
         schedulingState.usedResources,
         cpuUtil,
         cpuLimit,
@@ -366,7 +379,7 @@ class HarvestVMContainerPoolBalancer(
         maxCpuUtil,
         maxMemUtil,
         estimatedRps,
-        homeInvokerIndex,
+        homeInvoker,
         stepSize,
         invokerSetSize)
 
@@ -389,7 +402,7 @@ class HarvestVMContainerPoolBalancer(
       if(nextInvokerSetSize > 0) {
         var isShrink: Boolean = nextInvokerSetSize < invokerSetSize
         invokerSetProcessor ! InvokerSetSizeRequest(action.fullyQualifiedName(true),
-          updateHomeInvoker, isShrink, nextInvokerSetSize, sizeVersion)
+          isShrink, nextInvokerSetSize, version)
       }
 
       invoker.map(_._1)
@@ -431,7 +444,8 @@ class HarvestVMContainerPoolBalancer(
       messagingProvider,
       messageProducer,
       sendActivationToInvoker,
-      Some(monitor))
+      Some(monitor),
+      maxInvokerId)
 
   override protected def releaseInvoker(invoker: InvokerInstanceId, entry: ActivationEntry) = {
     // schedulingState.invokerSlots
@@ -464,7 +478,8 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
         messagingProvider: MessagingProvider,
         messagingProducer: MessageProducer,
         sendActivationToInvoker: (MessageProducer, ActivationMessage, InvokerInstanceId) => Future[RecordMetadata],
-        monitor: Option[ActorRef]): ActorRef = {
+        monitor: Option[ActorRef],
+        maxInvokerId: Int): ActorRef = {
 
         InvokerPool.prepare(instance, WhiskEntityStore.datastore())
 
@@ -473,7 +488,8 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
             (f, i) => f.actorOf(InvokerActor.props(i, instance)),
             (m, i) => sendActivationToInvoker(messagingProducer, m, i),
             messagingProvider.getConsumer(whiskConfig, s"health${instance.asString}", "health", maxPeek = 128),
-            monitor))
+            monitor,
+            maxInvokerId))
       }
 
     }
@@ -511,7 +527,10 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
    * obtained, randomly picks a healthy invoker.
    *
    * @param maxConcurrent concurrency limit supported by this action
-   * @param invokers a list of available invokers to search in, including their state
+   * @param invokers a list of available invokers to search in, including their state (only invokers whose status is usable)
+   * since only useable invokers are included, the invoker id ususally does not equal its index in invokers
+   * (unusable invokers are filtered out)
+   * @param invokerToIndexMap map invoker id to its index in invokers
    * @param usedResources record of resource usage of inflight invocations
    * @param reqCpu nubmer of cores that need to be acquired (average cpu usage)
    * @param cpuLimit max allowed cpu usage (hard limit of containers)
@@ -520,7 +539,7 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
    * @param maxMemUtil max allowed mem utilization of each invoker
    * @param reqMemory amount of memory that need to be acquired (e.g. memory in MB)
    * @param rps estimated request per seconds of the entire cluster
-   * @param homeInvoker the index to start from (initially should be the "homeInvoker"
+   * @param homeInvoker the id of the invoker to start search from
    * @param stepSize the step size used to compose invoker set
    * @param invokerSetSzie number of invokers in the invoker set of this function
    * @return an invoker to schedule to or None of no invoker is available, and recommended invoker set size
@@ -529,6 +548,7 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
     maxConcurrent: Int,
     fqn: FullyQualifiedEntityName,
     invokers: IndexedSeq[InvokerHealth],
+    invokerToIndexMap: Map[Int, Int],
     usedResources: Map[Int, InvokerResourceUsage],
     reqCpu: Double,
     cpuLimit: Double,
@@ -570,7 +590,7 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
 
       // estimate if current invoker set is enough to accomodate these functions
       var stepsDone: Int = 0  // number of steps made from homeInvoker
-      var nextIndex: Int = homeInvoker  // index of next invoker to check
+      var nextIndex: Int = invokerToIndexMap(homeInvoker)  // index of next invoker to check
       var totalRequiredCpu: Double = rps * exeTime * reqCpu
       var totalRequiredMem: Long = (rps * exeTime * reqMemory).toLong
       var invokerSetAvailCpu: Double = 0  // virutal cpus
@@ -579,7 +599,7 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
       var currInvokerSetSize: Int = invokerSetSize
       var nextInvokerSetSize: Int = 0   // recommended invoker set size based on current load
       if(invokerSetSize > numInvokers) {
-        logging.warn(this, s"InvokerSetSize ${invokerSetSize} exceeded #invokers ${numInvokers}")
+        logging.warn(this, s"InvokerSetSize ${invokerSetSize} exceeded #usable invokers ${numInvokers}")
         currInvokerSetSize = numInvokers
       } else if(invokerSetSize == 0) {
         logging.warn(this, s"InvokerSetSize = 0")
@@ -601,7 +621,7 @@ object HarvestVMContainerPoolBalancer extends LoadBalancerProvider {
                avail_mem: Long, 
                score: Double) = this_invoker.getAvailResources(
             maxCpuUtil, maxMemUtil, cpuCoeff, memCoeff)
-          logging.warn(this, s"check invoker${this_invoker_id} availCpu ${avail_cpu} availMem ${avail_mem} score ${score}")
+          // logging.warn(this, s"check invoker${this_invoker_id} availCpu ${avail_cpu} availMem ${avail_mem} score ${score}")
 
           if(avail_cpu >= reqCpu && avail_mem >= reqMemory && this_invoker.cpu > cpuLimit) {
             invokerSetAvailCpu = invokerSetAvailCpu + max(avail_cpu, 0)
@@ -939,16 +959,40 @@ case class HarvestVMContainerPoolBalancerState(
   private val blackboxFraction: Double = Math.max(1.0 - managedFraction, Math.min(1.0, lbConfig.blackboxFraction))
   logging.info(this, s"managedFraction = $managedFraction, blackboxFraction = $blackboxFraction")(
     TransactionId.loadbalancer)
+  
+  // usable invokers (status.isUsable == true)
+  private var _managedUsableInvokers = IndexedSeq.empty[InvokerHealth]
+  private var _blackboxUsableInvokers = IndexedSeq.empty[InvokerHealth]
+  // map from invoker id to their index in usable invoker array
+  private var _managedUsableInvokerToIndex = Map.empty[Int, Int]
+  private var _blackboxUsableInvokerToIndex = Map.empty[Int, Int]
 
   /** Getters for the variables, setting from the outside is only allowed through the update methods below */
+  // directly using getters might cause mismatch between invoker array and its bookkeeping data structures
+  // instead, use atomic get to get all related data all at once
   def invokers: IndexedSeq[InvokerHealth] = _invokers
   def managedInvokers: IndexedSeq[InvokerHealth] = _managedInvokers
   def blackboxInvokers: IndexedSeq[InvokerHealth] = _blackboxInvokers
+  def managedUsableInvokers: IndexedSeq[InvokerHealth] = _managedUsableInvokers
+  def blackboxUsableInvokers: IndexedSeq[InvokerHealth] = _blackboxUsableInvokers
+  def managedUsableInvokerToIndex: Map[Int, Int] = _managedUsableInvokerToIndex
+  def blackboxUsableInvokerToIndex: Map[Int, Int] = _blackboxUsableInvokerToIndex
   def managedStepSizes: Seq[Int] = _managedStepSizes
   def blackboxStepSizes: Seq[Int] = _blackboxStepSizes
   // def invokerSlots: IndexedSeq[NestedSemaphore[FullyQualifiedEntityName]] = _invokerSlots
   def usedResources: Map[Int, InvokerResourceUsage] = _usedResources
   // def clusterSize: Int = _clusterSize
+
+  // atomic get functions
+  def getManagedInvokersData(): (IndexedSeq[InvokerHealth], IndexedSeq[InvokerHealth],
+      Map[Int, Int], Seq[Int]) = this.synchronized {
+    (_managedInvokers, _managedUsableInvokers, _managedUsableInvokerToIndex, _managedStepSizes)
+  }
+
+  def getBlackboxInvokersData(): (IndexedSeq[InvokerHealth], IndexedSeq[InvokerHealth],
+      Map[Int, Int], Seq[Int]) = this.synchronized {
+    (_blackboxInvokers, _blackboxUsableInvokers, _blackboxUsableInvokerToIndex, _blackboxStepSizes)
+  }
 
   // keep states of active peer load controllers
   private var controllerState: SyncControllerState  = new SyncControllerState()
@@ -995,11 +1039,35 @@ case class HarvestVMContainerPoolBalancerState(
     val managed = Math.max(1, Math.ceil(newSize.toDouble * managedFraction).toInt)
     val blackboxes = Math.max(1, Math.floor(newSize.toDouble * blackboxFraction).toInt)
 
-    _invokers = newInvokers
-    _managedInvokers = _invokers.take(managed)
-    _blackboxInvokers = _invokers.takeRight(blackboxes)
+    // update of invoker states need to be atomic,
+    // otherwise scheduler might use mismatched data
+    this.synchronized {
+      _invokers = newInvokers
+      _managedInvokers = _invokers.take(managed)
+      _blackboxInvokers = _invokers.takeRight(blackboxes)
+      _managedUsableInvokers = _managedInvokers.filter(_.status.isUsable)
+      _blackboxUsableInvokers = _blackboxInvokers.filter(_.status.isUsable)
+      // fill the id to index map for managed
+      var index: Int = 0
+      var tempInvokerToIndex = Map.empty[Int, Int]
+      while(index < _managedUsableInvokers.size) {
+        var invokerId: Int = _managedUsableInvokers(index).id.toInt
+        tempInvokerToIndex = tempInvokerToIndex + (invokerId -> index)
+        index = index + 1
+      }
+      _managedUsableInvokerToIndex = tempInvokerToIndex
+      // fill the id to index map for blackbox
+      index = 0
+      tempInvokerToIndex = Map.empty[Int, Int]
+      while(index < _blackboxUsableInvokers.size) {
+        var invokerId: Int = _blackboxUsableInvokers(index).id.toInt
+        tempInvokerToIndex = tempInvokerToIndex + (invokerId -> index)
+        index = index + 1
+      }
+      _blackboxUsableInvokerToIndex = tempInvokerToIndex
+    }
 
-    // todo: update controller state here
+    // update controller state here
     for(i <- _invokers) {
       controllerState.update(i.controllerSet)
     }

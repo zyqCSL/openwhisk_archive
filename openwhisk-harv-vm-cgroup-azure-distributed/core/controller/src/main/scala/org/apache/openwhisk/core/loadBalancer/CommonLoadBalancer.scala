@@ -94,49 +94,178 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
     }
   }))
 
+  /******** functions related to consistent hash ring ***********/
+  // return the next index in the consistent hashing ring
+  def hashRingNextIndex(currId: Int, maxId: Int): Int = {
+    var nextId: Int = -1
+    if(currId >= maxId)
+      nextId = 0
+    else
+      nextId = currId + 1
+    nextId
+  }
+  // return the previous index in the consistent hashing ring
+  def hashRingPrevIndex(currId: Int, maxId: Int): Int = {
+    var prevId: Int = -1
+    if(currId <= 0)
+      prevId = maxId
+    else
+      prevId = currId - 1
+    prevId
+  }
+  // find the next usable node in the ring
+  def findHashRingNextNode(invokerRing: IndexedSeq[InvokerHealth], 
+      invokerId: Int, maxInvokerId: Int): Int = {
+    // invokerId should be identical to its index in invokerRing
+    if(invokerId != invokerRing(invokerId).id.toInt) {
+      logging.error(this, s"Invoker ${invokerId} & index in ring ${invokerRing(invokerId).id.toInt} does not match")
+    }
+    var nextInvokerId: Int = -1   // return data, id of next usable invoker
+    var nextId: Int = hashRingNextIndex(invokerId, maxInvokerId)   // next index to search
+    var nextFound: Boolean = false
+    while(!nextFound && nextId != invokerId) {
+      if(invokerRing(nextId).status.isUsable) {
+        nextInvokerId = nextId
+        nextFound = true
+      }
+      nextId = hashRingNextIndex(nextId, maxInvokerId)
+    }
+    nextInvokerId
+  } 
+  // find the previous usable node in the ring 
+  def findHashRingPrevNode(invokerRing: IndexedSeq[InvokerHealth], 
+      invokerId: Int, maxInvokerId: Int): Int = {
+    // invokerId should be identical to its index in invokerRing
+    if(invokerId != invokerRing(invokerId).id.toInt) {
+      logging.error(this, s"Invoker ${invokerId} & index in ring ${invokerRing(invokerId).id.toInt} does not match")
+    }
+    var prevInvokerId: Int = -1   // return data, id of previous usable invoker
+    var prevId: Int = hashRingPrevIndex(invokerId, maxInvokerId)
+    var prevFound: Boolean = false
+    while(!prevFound && prevId != invokerId) {
+      if(invokerRing(prevId).status.isUsable) {
+        prevFound = true
+        prevInvokerId = prevId
+      }
+      prevId = hashRingPrevIndex(prevId, maxInvokerId)
+    }
+    prevInvokerId
+  }
   /* states related to invoker set of each function, yanqi*/
-  // keeps the (home_invoker, num_live_invokers, home_version) for each function
+  // maxInvokerId to form the end point of ring in consistent hashing
+  protected[loadBalancer] val maxInvokerId: Int = 499
+  // keeps the (home_invoker, hashsed_function_id) for each function
   // home_invoker is the real id (not index) of the home invoker of the function
-  protected[loadBalancer] val functionHomeInvoker = TrieMap[FullyQualifiedEntityName, (Int, Int, Long)]()
+  protected[loadBalancer] val functionHomeInvoker = TrieMap[FullyQualifiedEntityName, (Int, Int)]()
+  // mapping from hash_id to function, only updated when new function arrives
+  // since we always use the same function
+  protected[loadBalancer] val hashFunctionMap = MMap[Int, IndexedSeq[FullyQualifiedEntityName]]()
   // keeps the (num_invokers, size_version) for each function
   protected[loadBalancer] val functionInvokerSet = TrieMap[FullyQualifiedEntityName, (Int, Long)]()
   // keeps the data structure used to estimate load of each function
   // only accessed in loadProcessor
   protected[loadBalancer] val functionInvokerSetState = MMap[FullyQualifiedEntityName, ActionInvokerSetState]()
   protected val invokerSetMinShrinkInterval: Long = 30 * 1000 // in ms
+  // request for seeing a new function, insert (home, hased_id) to records
+  case class InvokerSetNewFunctionRequest(actionId: FullyQualifiedEntity,
+    homeInvoker: Int, hashId: Int)
+  // request for invoker departure/arrival 
+  // function homes might need to be reshuffled accordingly
+  case class InvokerSetInvokerStatusRequest(invokerRing: IndexedSeq[InvokerHealth],
+    invokerId: Int, becomeUsable: Boolean)
   // request for changing size of invoker set
   case class InvokerSetSizeRequest(actionId: FullyQualifiedEntityName, 
-    updateHome: Boolean, isShrink: Boolean, 
-    numInvokers: Int, version: Long)
-  // request for changing home of invoker set
-  case class InvokerSetHomeRequest(actionId: FullyQualifiedEntityName, 
-    homeInvoker: Int, numLiveInvokers: Int, version: Long)
+    isShrink: Boolean, numInvokers: Int, version: Long)
   // use another process for updating load records
   private[loadBalancer] val invokerSetProcessor = actorSystem.actorOf(Props(new Actor {
     override def receive: Receive = {
+      case req: InvokerSetNewFunctionRequest =>
+        if(!functionHomeInvoker.contains(req.actionId)) {
+          // create record only for first invocation
+          functionHomeInvoker.update(req.actionId, (req.homeInvoker, req.hashId))
+          // add the function to hashId->function map
+          if(!hashFunctionMap.contains(req.hashId))
+            hashFunctionMap(req.hashId) = IndexedSeq[FullyQualifiedEntityName]()
+          hashFunctionMap(req.hashId) = hashFunctionMap(req.hashId) ++ IndexedSeq(req.actionId)
+        }
+      case req: InvokerSetInvokerStatusRequest =>
+        // in both case (becomeUsable or not), InvokerId's previous usable node needs to be found
+        val usableInvokers = req.invokerRing.filter(_.status.isUsable)
+        // ignore numInvokers == 0 since reshuffling is meaningless
+        if(usableInvokers.size == 1) {
+          // reshuffle all functions to the only usable invoker
+          var usableInvokerId: Int = usableInvokers(0).id.toInt
+          // invokerId should be identical to its index in invokerRing
+          if(usableInvokerId != invokerRing(usableInvokerId).id.toInt) {
+            logging.error(this, s"Invoker ${invokerRing(usableInvokerId).id.toInt} & index in ring ${usableInvokerId} does not match")
+          }
+          // reshuffle all witnessed functions
+          var hashId: Int = 0
+          while(hashId <= maxInvokerId) {
+            if(hashFunctionMap.contains(hashId)) {
+              hashFunctionMap(hashId).foreach { functionName =>
+                 functionHomeInvoker.update(functionName, (usableInvokerId, hashId))
+                 functionInvokerSetState.getOrElseUpdate(functionName, 
+                   new ActionInvokerSetState(invokerSetMinShrinkInterval))
+                   .setHomeUpdated()
+              }
+            }
+            hashId = hashId + 1
+          }
+        } else if (numUsableInvokers > 1) {
+          if(req.becomeUsable) {
+            // remap functions with id between previous & this invoker to this invoker
+            var prevInvokerId: Int = findHashRingPrevNode(invokerRing, req.invokerId, maxInvokerId)
+            if(prevInvokerId < 0) {
+              logging.error(this, s"Invoker ${req.invokerId} prevNode doesn't exist, becomeUsable=${req.becomeUsable}, numUsableInvokers=${usableInvokers.size}(>1)")
+            } else {
+              var hashId: Int = hashRingNextIndex(prevInvokerId, maxInvokerId)
+              var endHashId: Int = hashRingNextIndex(req.invokerId, maxInvokerId)
+              while(hashId != endHashId) {
+                if(hashFunctionMap.contains(hashId)) {
+                  hashFunctionMap(hashId).foreach { functionName =>
+                    functionHomeInvoker.update(functionName, (req.invokerId, hashId))
+                    functionInvokerSetState.getOrElseUpdate(functionName, 
+                      new ActionInvokerSetState(invokerSetMinShrinkInterval))
+                      .setHomeUpdated()
+                  }
+                }
+                hashId = hashRingNextIndex(hashId, maxInvokerId)
+              }
+            }
+          } else {
+            // remap functions with id between previous & this invoker to next invoker
+            var prevInvokerId: Int = findHashRingPrevNode(invokerRing, req.invokerId, maxInvokerId)
+            var nextInvokerId: Int = findHashRingNextNode(invokerRing, req.invokerId, maxInvokerId)
+            if(prevInvokerId < 0 || nextInvokerId < 0) {
+              logging.error(this, s"Invoker ${req.invokerId} either prevNode=${prevInvokerId} or nextNode=${nextInvokerId} doesn't exist, becomeUsable=${req.becomeUsable}, numUsableInvokers=${usableInvokers.size}(>1)")
+            } else {
+              var hashId: Int = hashRingNextIndex(prevInvokerId, maxInvokerId)
+              var endHashId: Int = hashRingNextIndex(req.invokerId, maxInvokerId)
+              while(hashId != endHashId) {
+                if(hashFunctionMap.contains(hashId)) {
+                  hashFunctionMap(hashId).foreach { functionName =>
+                    functionHomeInvoker.update(functionName, (nextInvokerId, hashId))
+                    functionInvokerSetState.getOrElseUpdate(functionName, 
+                      new ActionInvokerSetState(invokerSetMinShrinkInterval))
+                      .setHomeUpdated()
+                  }
+                }
+                hashId = hashRingNextIndex(hashId, maxInvokerId)
+              }
+            }
+          }
+        }
       case req: InvokerSetSizeRequest =>
         // logging.info(this, s"In CommonLoadBalancer dataProcessor") 
-        val (update_size, num_invokers, size_version) 
+        val (update, num_invokers, version) 
             = functionInvokerSetState.getOrElseUpdate(req.actionId, 
                 new ActionInvokerSetState(invokerSetMinShrinkInterval))
-                .updateNumInvokers(req.numInvokers, req.updateHome, req.isShrink, req.version)
+                .updateNumInvokers(req.numInvokers, req.isShrink, req.version)
         // logging.info(this, s"loadProcessor record set up") 
-        if(update_size) {
-          functionInvokerSet.update(req.actionId, (num_invokers, size_version))
-          logging.info(this, s"function ${req.actionId.asString} num_invokers=${num_invokers} version=${size_version}")
-        }
-        // logging.info(this, s"loadProcessor functionLoad updated") 
-      
-      case req: InvokerSetHomeRequest =>
-        // logging.info(this, s"In CommonLoadBalancer dataProcessor") 
-        val (update_home, home_invoker, num_live_invokers, home_version) 
-            = functionInvokerSetState.getOrElseUpdate(req.actionId, 
-                new ActionInvokerSetState(invokerSetMinShrinkInterval))
-                .updateHomeInvoker(req.homeInvoker, req.numLiveInvokers, req.version)
-        // logging.info(this, s"loadProcessor record set up") 
-        if(update_home) {
-          functionHomeInvoker.update(req.actionId, (home_invoker, num_live_invokers, home_version))
-          logging.info(this, s"function ${req.actionId.asString} home_invoker=${home_invoker} num_live_invokers=${num_live_invokers} version=${home_version}")
+        if(update) {
+          functionInvokerSet.update(req.actionId, (num_invokers, version))
+          logging.info(this, s"function ${req.actionId.asString} num_invokers=${num_invokers} version=${version}")
         }
         // logging.info(this, s"loadProcessor functionLoad updated") 
     }
