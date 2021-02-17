@@ -42,8 +42,8 @@
     #
     # new_invoker_ids: the exact id of each invoker, and each invoker will names names as {name_prefix}{invoker_id}
     new_invoker_ids:
-      - 1
-      - 2
+      - 100
+      - 200
 
   roles:
     - new_invoker

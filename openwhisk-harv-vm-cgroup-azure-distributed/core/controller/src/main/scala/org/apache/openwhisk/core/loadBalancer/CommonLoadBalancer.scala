@@ -183,6 +183,7 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
         if(!functionHomeInvoker.contains(req.actionId)) {
           // create record only for first invocation
           functionHomeInvoker.update(req.actionId, (req.homeInvoker, req.hashId))
+          logging.info(this, s"function (new) ${req.actionId.asString} homeInvoker=${req.homeInvoker} hashId=${req.hashId}")
           // add the function to hashId->function map
           if(!hashFunctionMap.contains(req.hashId))
             hashFunctionMap(req.hashId) = IndexedSeq[FullyQualifiedEntityName]()
@@ -205,6 +206,7 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
             if(hashFunctionMap.contains(hashId)) {
               hashFunctionMap(hashId).foreach { functionName =>
                  functionHomeInvoker.update(functionName, (usableInvokerId, hashId))
+                 logging.info(this, s"function (changed) ${functionName.asString} homeInvoker=${usableInvokerId} hashId=${hashId}")
                  functionInvokerSetState.getOrElseUpdate(functionName, 
                    new ActionInvokerSetState(invokerSetMinShrinkInterval))
                    .setHomeUpdated()
@@ -225,6 +227,7 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
                 if(hashFunctionMap.contains(hashId)) {
                   hashFunctionMap(hashId).foreach { functionName =>
                     functionHomeInvoker.update(functionName, (req.invokerId, hashId))
+                    logging.info(this, s"function (changed) ${functionName.asString} homeInvoker=${req.invokerId} hashId=${hashId}")
                     functionInvokerSetState.getOrElseUpdate(functionName, 
                       new ActionInvokerSetState(invokerSetMinShrinkInterval))
                       .setHomeUpdated()
@@ -246,6 +249,7 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
                 if(hashFunctionMap.contains(hashId)) {
                   hashFunctionMap(hashId).foreach { functionName =>
                     functionHomeInvoker.update(functionName, (nextInvokerId, hashId))
+                    logging.info(this, s"function (changed) ${functionName.asString} homeInvoker=${nextInvokerId} hashId=${hashId}")
                     functionInvokerSetState.getOrElseUpdate(functionName, 
                       new ActionInvokerSetState(invokerSetMinShrinkInterval))
                       .setHomeUpdated()

@@ -31,12 +31,18 @@
     #   'host_group' above) to name host/invokers.
     name_prefix: "invoker"
     #
-    # invoker_index_base - the deployment process allocates host docker
-    #   ports to individual invokers based on their indices.  This is an
-    #   additional offset to prevent collisions between different invoker
-    #   groups. Usually 0 if only one group is being deployed, otherwise
-    #   something like "{{ groups['firstinvokergroup']|length }}"
-    invoker_index_base: 0
+    # # invoker_index_base - the deployment process allocates host docker
+    # #   ports to individual invokers based on their indices.  This is an
+    # #   additional offset to prevent collisions between different invoker
+    # #   groups. Usually 0 if only one group is being deployed, otherwise
+    # #   something like "{{ groups['firstinvokergroup']|length }}"
+    # invoker_index_base: 0
+
+    #
+    # invoker_ids: the exact id of each invoker, and each invoker will names names as {name_prefix}{invoker_id}
+    invoker_ids:
+      - 100
+      - 200
 
   roles:
     - invoker
