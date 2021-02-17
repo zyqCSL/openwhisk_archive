@@ -1092,21 +1092,21 @@ case class HarvestVMContainerPoolBalancerState(
         //   .mkString(", ")
 
         // val newInvokerDetails = onlyNewInvokers
-        // record info of all invokers for rsc change
-        val invokerDetails = _invokers
+        // record info of non-offline invokers for rsc change
+        val invokerDetails = _invokers.filter(_.status.toString != "down")
           .map(i =>
             s"${i.id.toString}: ${i.status} avail cpu(cores) ${i.cpu} mem ${i.memory}MB")
           .mkString(", ")
         s"number of known invokers increased: new = $newSize, old = $oldSize. details: $invokerDetails."
       } else {
-        val invokerDetails = _invokers
+        val invokerDetails = _invokers.filter(_.status.toString != "down")
           .map(i =>
             s"${i.id.toString}: ${i.status} avail cpu(cores) ${i.cpu} mem ${i.memory}MB")
           .mkString(", ")
         s"number of known invokers decreased: new = $newSize, old = $oldSize. details: $invokerDetails."
       }
     } else {
-      val invokerDetails = _invokers
+      val invokerDetails = _invokers.filter(_.status.toString != "down")
           .map(i =>
             s"${i.id.toString}: ${i.status} avail cpu(cores) ${i.cpu} mem ${i.memory}MB")
           .mkString(", ")
