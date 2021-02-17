@@ -212,11 +212,11 @@ class InvokerPool(childFactory: (ActorRefFactory, InvokerInstanceId) => ActorRef
 
       refToInstance.get(invoker).foreach { instance =>
         // check state change for consistent hashing
-        if(oldState.isUsable && !currentState.isUsable) {
+        if(oldState.isUsable && !newState.isUsable) {
           stateTransit = true
           invokerId = instance.toInt
           becomeUsable = false
-        } else if(!oldState.isUsable && currentState.isUsable) {
+        } else if(!oldState.isUsable && newState.isUsable) {
           stateTransit = true
           invokerId = instance.toInt
           becomeUsable = true
@@ -350,8 +350,9 @@ object InvokerPool {
   def props(f: (ActorRefFactory, InvokerInstanceId) => ActorRef,
             p: (ActivationMessage, InvokerInstanceId) => Future[RecordMetadata],
             pc: MessageConsumer,
-            m: Option[ActorRef] = None): Props = {
-    Props(new InvokerPool(f, p, pc, m))
+            m: Option[ActorRef] = None,
+            maxHashId: Int): Props = {
+    Props(new InvokerPool(f, p, pc, m, maxHashId))
   }
 
   /** A stub identity for invoking the test action. This does not need to be a valid identity. */

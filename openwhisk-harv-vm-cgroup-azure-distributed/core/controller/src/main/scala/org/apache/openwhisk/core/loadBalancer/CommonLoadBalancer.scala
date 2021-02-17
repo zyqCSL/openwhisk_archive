@@ -167,7 +167,7 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
   protected[loadBalancer] val functionInvokerSetState = MMap[FullyQualifiedEntityName, ActionInvokerSetState]()
   protected val invokerSetMinShrinkInterval: Long = 30 * 1000 // in ms
   // request for seeing a new function, insert (home, hased_id) to records
-  case class InvokerSetNewFunctionRequest(actionId: FullyQualifiedEntity,
+  case class InvokerSetNewFunctionRequest(actionId: FullyQualifiedEntityName,
     homeInvoker: Int, hashId: Int)
   // request for invoker departure/arrival 
   // function homes might need to be reshuffled accordingly
@@ -196,8 +196,8 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
           // reshuffle all functions to the only usable invoker
           var usableInvokerId: Int = usableInvokers(0).id.toInt
           // invokerId should be identical to its index in invokerRing
-          if(usableInvokerId != invokerRing(usableInvokerId).id.toInt) {
-            logging.error(this, s"Invoker ${invokerRing(usableInvokerId).id.toInt} & index in ring ${usableInvokerId} does not match")
+          if(usableInvokerId != req.invokerRing(usableInvokerId).id.toInt) {
+            logging.error(this, s"Invoker ${req.invokerRing(usableInvokerId).id.toInt} & index in ring ${usableInvokerId} does not match")
           }
           // reshuffle all witnessed functions
           var hashId: Int = 0
@@ -212,10 +212,10 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
             }
             hashId = hashId + 1
           }
-        } else if (numUsableInvokers > 1) {
+        } else if (usableInvokers.size > 1) {
           if(req.becomeUsable) {
             // remap functions with id between previous & this invoker to this invoker
-            var prevInvokerId: Int = findHashRingPrevNode(invokerRing, req.invokerId, maxInvokerId)
+            var prevInvokerId: Int = findHashRingPrevNode(req.invokerRing, req.invokerId, maxInvokerId)
             if(prevInvokerId < 0) {
               logging.error(this, s"Invoker ${req.invokerId} prevNode doesn't exist, becomeUsable=${req.becomeUsable}, numUsableInvokers=${usableInvokers.size}(>1)")
             } else {
@@ -235,8 +235,8 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
             }
           } else {
             // remap functions with id between previous & this invoker to next invoker
-            var prevInvokerId: Int = findHashRingPrevNode(invokerRing, req.invokerId, maxInvokerId)
-            var nextInvokerId: Int = findHashRingNextNode(invokerRing, req.invokerId, maxInvokerId)
+            var prevInvokerId: Int = findHashRingPrevNode(req.invokerRing, req.invokerId, maxInvokerId)
+            var nextInvokerId: Int = findHashRingNextNode(req.invokerRing, req.invokerId, maxInvokerId)
             if(prevInvokerId < 0 || nextInvokerId < 0) {
               logging.error(this, s"Invoker ${req.invokerId} either prevNode=${prevInvokerId} or nextNode=${nextInvokerId} doesn't exist, becomeUsable=${req.becomeUsable}, numUsableInvokers=${usableInvokers.size}(>1)")
             } else {
@@ -261,7 +261,7 @@ abstract class CommonLoadBalancer(config: WhiskConfig,
         val (update, num_invokers, version) 
             = functionInvokerSetState.getOrElseUpdate(req.actionId, 
                 new ActionInvokerSetState(invokerSetMinShrinkInterval))
-                .updateNumInvokers(req.numInvokers, req.isShrink, req.version)
+                .update(req.numInvokers, req.isShrink, req.version)
         // logging.info(this, s"loadProcessor record set up") 
         if(update) {
           functionInvokerSet.update(req.actionId, (num_invokers, version))

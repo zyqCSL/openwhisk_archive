@@ -292,7 +292,7 @@ class HarvestVMContainerPoolBalancer(
     // no usable invoker exists
     if(usableInvokers.size == 0) {
       homeInvoker = -1
-    } else if(hashId > usableInvokers(usableInvokers.size - 1)) {
+    } else if(hashId > usableInvokers(usableInvokers.size - 1).id.toInt) {
       // > largetst invoker id, use smallest invoker id available (consistent hash ring)
       homeInvoker = usableInvokers(0).id.toInt
     } else {
