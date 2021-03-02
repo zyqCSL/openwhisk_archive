@@ -71,7 +71,7 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
   var prewarmedPool = immutable.Map.empty[ActorRef, ContainerData]
 
   // map fo function cpu utilization, used for cpu admission control
-  var overSubscribedRate: Double = 1.0
+  var overSubscribedRate: Double = 0.9
 
   var availMemory: ByteSize = poolConfig.userMemory
   var availCpu: Double = 10.0
@@ -222,7 +222,8 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
       if (runBuffer.isEmpty || isResentFromBuffer) {
         val createdContainer =
           // Is there enough space on the invoker for this action to be executed.
-          if (hasSpaceFor(r.action.limits.memory.megabytes.MB, cpuUtil)) {
+          // if (hasSpaceFor(r.action.limits.memory.megabytes.MB, cpuUtil)) {
+          if (hasSpaceFor(r.action.limits.memory.megabytes.MB)) {
             // Schedule a job to a warm container
             ContainerPool
               .schedule(r.action, r.msg.user.namespace.name, freePool, cpuLimit, cpuUtil)
@@ -460,7 +461,8 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
    * @param cpu cpu usage (not limit) for the invocation
    * @return true, if there is enough space for the given amount of memory.
    */
-  def hasSpaceFor[A](memory: ByteSize, cpuUtil: Double): Boolean = {
+  // def hasSpaceFor[A](memory: ByteSize, cpuUtil: Double): Boolean = {
+  def hasSpaceFor[A](memory: ByteSize): Boolean = {
     // yanqi, add periodic check of available resources
     val curms: Long = System.currentTimeMillis()
     if(curms - prevCheckTime >= resourceCheckInterval) {
@@ -572,7 +574,8 @@ class ContainerPool(childFactory: ActorRefFactory => ActorRef,
     val (mean_cpu_usage, mean_mem_usage) = get_mean_rsc_usage()
     val (max_cpu_usage, max_mem_usage) = get_max_rsc_usage()
 
-    max_mem_usage + memory.toMB <= availMemory.toMB && mean_cpu_usage + cpuUtil <= availCpu*overSubscribedRate
+    // max_mem_usage + memory.toMB <= availMemory.toMB && mean_cpu_usage + cpuUtil <= availCpu*overSubscribedRate
+    max_mem_usage + memory.toMB <= availMemory.toMB && max_cpu_usage <= availCpu*overSubscribedRate
   }
 }
 
