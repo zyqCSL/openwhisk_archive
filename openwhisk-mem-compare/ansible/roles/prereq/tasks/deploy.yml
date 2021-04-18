@@ -27,95 +27,78 @@
   become: true
   when: pip_result.rc != 0
 
-# new
-- name: set up /var/lib/hyperv/.kvp_pool_0
-  shell: "touch /var/lib/hyperv/.kvp_pool_0"
-  become: true
+# new, yanqi
+#----- setting up .kvp_pool_x is moved to azure vm startup scripts -----#
+# - name: set up /var/lib/hyperv/.kvp_pool_0 (cpu info)
+#   shell: "touch /var/lib/hyperv/.kvp_pool_0"
+#   become: true
 
-- name: write core number to /var/lib/hyperv/.kvp_pool_0 (change if core != 32)
-  shell: bash -c 'echo 32 > /var/lib/hyperv/.kvp_pool_0'
-  become: true
+# - name: set up /var/lib/hyperv/.kvp_pool_2 (mem info)
+#   shell: "touch /var/lib/hyperv/.kvp_pool_2"
+#   become: true
 
-- name: write memory size to /var/lib/hyperv/.kvp_pool_0 (change if memory != 128GB)
-  shell: bash -c 'echo 131072  >> /var/lib/hyperv/.kvp_pool_0'
-  become: true
+# - name: write core number to /var/lib/hyperv/.kvp_pool_0 (change if core != 32)
+#   shell: bash -c 'if [ ! -s /var/lib/hyperv/.kvp_pool_0 ]; then printf "CurrentCoreCount%b%b%b%b32.000%b" "\0" "\0" "\0" "\0" "\0" > /var/lib/hyperv/.kvp_pool_0; fi'
+#   become: true
+
+# - name: change .kvp_pool_0 permissions
+#   shell: "chmod 777 /var/lib/hyperv/.kvp_pool_0"
+#   become: true
+
+# - name: write memory size to /var/lib/hyperv/.kvp_pool_2 (change if memory != 128GB)
+#   shell: bash -c 'printf "CurrentMemoryMB%b%b%b%b131072%b" "\0" "\0" "\0" "\0" "\0" > /var/lib/hyperv/.kvp_pool_2'
+#   become: true
+
+# - name: change .kvp_pool_2 permissions
+#   shell: "chmod 777 /var/lib/hyperv/.kvp_pool_2"
+#   become: true
+
+# - name : set up Azure metadata service
+#   shell: curl -H Metadata:true http://169.254.169.254/metadata/scheduledevents?api-version=2019-08-01
 
 - name: update apt index (1st)
   shell: "apt-get update"
   become: true
 
-- name: install pip (apt)
-  shell: "apt-get -y install python-pip"
-  become: true
+# - name: install sysstat for mpstat
+#   shell: "apt-get -y install sysstat"
+#   become: true
 
-- name: install nodes
-  shell: "apt-get -y install nodejs"
-  become: true
+# - name: install requests
+#   pip:
+#     name: requests
+#     version: 2.10.0
+#   become: true
 
-- name: install npm
-  shell: "apt-get install npm"
-  become: true
+# - name: install docker for python
+#   pip:
+#     name: docker
+#     version: 4.0.2
+#   become: true
 
-- name: install sysstat for mpstat
-  shell: "apt-get install sysstat"
-  become: true
+# - name: install httplib2
+#   pip:
+#     name: httplib2
+#     version: 0.9.2
+#   become: true
 
-- name: install requests
-  pip:
-    name: requests
-    version: 2.10.0
-  become: true
+# # new, yanqi
+# - name: update apt index (2nd)
+#   shell: "apt-get update"
+#   become: true
 
-- name: install docker for python
-  pip:
-    name: docker
-    version: 4.0.2
-  become: true
+# - name: install cgroup-tools 
+#   shell: "apt-get -y install cgroup-tools"
+#   become: true
 
-- name: install httplib2
-  pip:
-    name: httplib2
-    version: 0.9.2
-  become: true
-
-# new
-- name: update apt index (2nd)
-  shell: "apt-get update"
-  become: true
-
-- name: install docker pre-req
-  shell: "apt-get -y install apt-transport-https ca-certificates curl gnupg-agent software-properties-common"
-  become: true
-
-- name: add docker’s official GPG key
-  shell: "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -"
-  become: true
-
-- name: set up stable repository for docker
-  shell: "add-apt-repository \"deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable\""
-  become: true
-
-- name: update apt index (3rd)
-  shell: "apt-get -y update"
-  become: true
-
-- name: install docker engine
-  shell: "apt-get -y install docker-ce docker-ce-cli containerd.io"
-  become: true
+# - name: create cgroup for harvest vm
+#   shell: "cgcreate -g memory,cpu:cgroup_harvest_vm"
+#   become: true
 
 # - name: create docker group
 #   shell: "groupadd docker"
 #   become: true
 
-- name: add user to docker group
-  shell: "usermod -aG docker $USER"
-  become: true
-
-- name: add user to docker group
-  shell: "usermod -aG docker yanqi"
-  become: true
-
-- name: install zip
-  shell: "apt-get -y install zip"
-  become: true
-
+# - name: add user to docker group
+#   shell: "usermod -aG docker $USER"
+#   become: true
