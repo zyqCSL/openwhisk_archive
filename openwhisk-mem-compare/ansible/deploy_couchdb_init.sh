@@ -1,3 +1,4 @@
+ansible-playbook prereq.yml
 # ansible-playbook prereq_system.yml  # install pkgs on controllers & invokers
 ansible-playbook couchdb.yml
 ansible-playbook initdb.yml
