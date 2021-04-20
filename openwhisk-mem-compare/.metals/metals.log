@@ -48,3 +48,4 @@ scala.reflect.internal.FatalError: no context found for source-file:///home/zhan
 [0m2021.04.19 22:07:28 WARN  no build target for: /home/zhangyanqi/Research/Projects/openwhisk_archive/openwhisk-mem-compare/core/controller/src/main/scala/org/apache/openwhisk/core/controller/Controller.scala[0m
 [0m2021.04.19 22:10:27 WARN  no build target for: /home/zhangyanqi/Research/Projects/openwhisk_archive/openwhisk-mem-compare/core/controller/src/main/scala/org/apache/openwhisk/core/controller/Controller.scala[0m
 [0m2021.04.19 22:10:59 WARN  no build target for: /home/zhangyanqi/Research/Projects/openwhisk_archive/openwhisk-mem-compare/common/scala/src/main/scala/org/apache/openwhisk/core/WhiskConfig.scala[0m
+[0m2021.04.19 22:32:41 INFO  shutting down Metals[0m
