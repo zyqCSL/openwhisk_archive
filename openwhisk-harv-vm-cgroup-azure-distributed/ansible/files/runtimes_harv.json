@@ -2,34 +2,6 @@
     "runtimes": {
         "nodejs": [
             {
-                "kind": "nodejs:6",
-                "default": false,
-                "image": {
-                    "prefix": "openwhisk",
-                    "name": "nodejs6action",
-                    "tag": "nightly"
-                },
-                "deprecated": false,
-                "attached": {
-                    "attachmentName": "codefile",
-                    "attachmentType": "text/plain"
-                }
-            },
-            {
-                "kind": "nodejs:8",
-                "default": false,
-                "image": {
-                    "prefix": "openwhisk",
-                    "name": "action-nodejs-v8",
-                    "tag": "nightly"
-                },
-                "deprecated": false,
-                "attached": {
-                    "attachmentName": "codefile",
-                    "attachmentType": "text/plain"
-                }
-            },
-            {
                 "kind": "nodejs:10",
                 "default": true,
                 "image": {
@@ -48,20 +20,6 @@
                         "memory": "256 MB"
                     }
                 ]
-            },
-            {
-                "kind": "nodejs:12",
-                "default": false,
-                "image": {
-                    "prefix": "openwhisk",
-                    "name": "action-nodejs-v12",
-                    "tag": "nightly"
-                },
-                "deprecated": false,
-                "attached": {
-                    "attachmentName": "codefile",
-                    "attachmentType": "text/plain"
-                }
             }
         ]
     },
