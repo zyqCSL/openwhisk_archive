@@ -1,0 +1,193 @@
+Only in openwhisk-harv-vm-cgroup-azure-distributed/ansible: deploy_change_invoker.sh
+Only in openwhisk-harv-vm-cgroup-azure-distributed/ansible/files: make_runtimes_json.py
+diff --color -r openwhisk-harv-vm-cgroup-azure-distributed-jsq/ansible/files/runtimes.json openwhisk-harv-vm-cgroup-azure-distributed/ansible/files/runtimes.json
+216a217,261
+>         },
+>         {
+>             "prefix": "sailresearch",
+>             "name": "python3_openwhisk",
+>             "tag": "latest"
+>         },
+>         {
+>             "prefix": "sailresearch",
+>             "name": "chameleon_openwhisk-0",
+>             "tag": "latest"
+>         },
+>         {
+>             "prefix": "sailresearch",
+>             "name": "image_processing_openwhisk-0",
+>             "tag": "latest"
+>         },
+>         {
+>             "prefix": "sailresearch",
+>             "name": "matmult_openwhisk-0",
+>             "tag": "latest"
+>         },
+>         {
+>             "prefix": "sailresearch",
+>             "name": "linpack_openwhisk-0",
+>             "tag": "latest"
+>         },
+>         {
+>             "prefix": "sailresearch",
+>             "name": "pyaes_openwhisk-0",
+>             "tag": "latest"
+>         },
+>         {
+>             "prefix": "sailresearch",
+>             "name": "video_process_openwhisk-0",
+>             "tag": "latest"
+>         },
+>         {
+>             "prefix": "sailresearch",
+>             "name": "lr_review_openwhisk-0",
+>             "tag": "latest"
+>         },
+>         {
+>             "prefix": "sailresearch",
+>             "name": "mobilenet_openwhisk-0",
+>             "tag": "latest"
+219c264
+< }
+---
+> }
+\ No newline at end of file
+Only in openwhisk-harv-vm-cgroup-azure-distributed/ansible/files: runtimes_all.json
+Only in openwhisk-harv-vm-cgroup-azure-distributed/ansible/files: runtimes_harv.json
+Only in openwhisk-harv-vm-cgroup-azure-distributed/ansible/files: runtimes_original.json
+Only in openwhisk-harv-vm-cgroup-azure-distributed/ansible/files: runtimes_synthetic.json
+diff --color -r openwhisk-harv-vm-cgroup-azure-distributed-jsq/ansible/invoker.yml openwhisk-harv-vm-cgroup-azure-distributed/ansible/invoker.yml
+34,39c34,45
+<     # invoker_index_base - the deployment process allocates host docker
+<     #   ports to individual invokers based on their indices.  This is an
+<     #   additional offset to prevent collisions between different invoker
+<     #   groups. Usually 0 if only one group is being deployed, otherwise
+<     #   something like "{{ groups['firstinvokergroup']|length }}"
+<     invoker_index_base: 0
+---
+>     # # invoker_index_base - the deployment process allocates host docker
+>     # #   ports to individual invokers based on their indices.  This is an
+>     # #   additional offset to prevent collisions between different invoker
+>     # #   groups. Usually 0 if only one group is being deployed, otherwise
+>     # #   something like "{{ groups['firstinvokergroup']|length }}"
+>     # invoker_index_base: 0
+> 
+>     #
+>     # invoker_ids: the exact id of each invoker, and each invoker will names names as {name_prefix}{invoker_id}
+>     invoker_ids:
+>       - 100
+>       - 200
+Only in openwhisk-harv-vm-cgroup-azure-distributed/ansible: new_invoker.yml
+Only in openwhisk-harv-vm-cgroup-azure-distributed/ansible: openwhisk_new_invoker.yml
+diff --color -r openwhisk-harv-vm-cgroup-azure-distributed-jsq/ansible/roles/controller/tasks/deploy.yml openwhisk-harv-vm-cgroup-azure-distributed/ansible/roles/controller/tasks/deploy.yml
+32c32
+<   shell: "docker pull sailresearch/openwhisk_harvest_vm_cgroup_controller-jsq:latest"
+---
+>   shell: "docker pull sailresearch/openwhisk_harvest_vm_cgroup_controller:latest"
+319c319
+<       "sailresearch/openwhisk_harvest_vm_cgroup_controller-jsq:latest"
+---
+>       "sailresearch/openwhisk_harvest_vm_cgroup_controller:latest"
+diff --color -r openwhisk-harv-vm-cgroup-azure-distributed-jsq/ansible/roles/invoker/tasks/deploy.yml openwhisk-harv-vm-cgroup-azure-distributed/ansible/roles/invoker/tasks/deploy.yml
+21a22,24
+> - name : set up Azure metadata service
+>   shell: curl -H Metadata:true http://169.254.169.254/metadata/scheduledevents?api-version=2019-08-01
+> 
+24,25c27,30
+<     invoker_name: "{{ name_prefix ~ ((invoker_index_base | int) + host_group.index(inventory_hostname)) }}"
+<     invoker_index: "{{ (invoker_index_base | int) + host_group.index(inventory_hostname) }}"
+---
+>     # invoker_name: "{{ name_prefix ~ ((invoker_index_base | int) + host_group.index(inventory_hostname)) }}"
+>     # invoker_index: "{{ (invoker_index_base | int) + host_group.index(inventory_hostname) }}"
+>     invoker_name: "{{ name_prefix ~ (invoker_ids[host_group.index(inventory_hostname)]) }}"
+>     invoker_index: "{{ invoker_ids[host_group.index(inventory_hostname)] }}"
+30c35
+<   shell: "docker pull sailresearch/openwhisk_harvest_vm_cgroup_invoker-jsq:latest"
+---
+>   shell: "docker pull sailresearch/openwhisk_harvest_vm_cgroup_invoker:latest"
+252c257
+<       "CONFIG_whisk_containerPool_userMemory": "{{ hostvars[groups['invokers'][invoker_index | int]].user_memory | default(invoker.userMemory) }}"
+---
+>       "CONFIG_whisk_containerPool_userMemory": "{{ invoker.userMemory }}"
+363c368
+<     image: "sailresearch/openwhisk_harvest_vm_cgroup_invoker-jsq:latest"
+---
+>     image: "sailresearch/openwhisk_harvest_vm_cgroup_invoker:latest"
+Only in openwhisk-harv-vm-cgroup-azure-distributed/ansible/roles: new_invoker
+diff --color -r openwhisk-harv-vm-cgroup-azure-distributed-jsq/ansible/roles/prereq/tasks/deploy.yml openwhisk-harv-vm-cgroup-azure-distributed/ansible/roles/prereq/tasks/deploy.yml
+31,33c31,34
+< - name: set up /var/lib/hyperv/.kvp_pool_0 (cpu info)
+<   shell: "touch /var/lib/hyperv/.kvp_pool_0"
+<   become: true
+---
+> #----- setting up .kvp_pool_x is moved to azure vm startup scripts -----#
+> # - name: set up /var/lib/hyperv/.kvp_pool_0 (cpu info)
+> #   shell: "touch /var/lib/hyperv/.kvp_pool_0"
+> #   become: true
+35,37c36,38
+< - name: set up /var/lib/hyperv/.kvp_pool_2 (mem info)
+<   shell: "touch /var/lib/hyperv/.kvp_pool_2"
+<   become: true
+---
+> # - name: set up /var/lib/hyperv/.kvp_pool_2 (mem info)
+> #   shell: "touch /var/lib/hyperv/.kvp_pool_2"
+> #   become: true
+39,41c40,42
+< - name: write core number to /var/lib/hyperv/.kvp_pool_0 (change if core != 48)
+<   shell: bash -c 'if [ ! -s /var/lib/hyperv/.kvp_pool_0 ]; then printf "CurrentCoreCount%b%b%b%b48.000%b" "\0" "\0" "\0" "\0" "\0" > /var/lib/hyperv/.kvp_pool_0; fi'
+<   become: true
+---
+> # - name: write core number to /var/lib/hyperv/.kvp_pool_0 (change if core != 32)
+> #   shell: bash -c 'if [ ! -s /var/lib/hyperv/.kvp_pool_0 ]; then printf "CurrentCoreCount%b%b%b%b32.000%b" "\0" "\0" "\0" "\0" "\0" > /var/lib/hyperv/.kvp_pool_0; fi'
+> #   become: true
+43,45c44,46
+< - name: write memory size to /var/lib/hyperv/.kvp_pool_2 (change if memory != 196GB)
+<   shell: bash -c 'printf "CurrentMemoryMB%b%b%b%b200704%b" "\0" "\0" "\0" "\0" "\0" > /var/lib/hyperv/.kvp_pool_2'
+<   become: true
+---
+> # - name: change .kvp_pool_0 permissions
+> #   shell: "chmod 777 /var/lib/hyperv/.kvp_pool_0"
+> #   become: true
+47,48c48,57
+< - name : set up Azure metadata service
+<   shell: curl -H Metadata:true http://169.254.169.254/metadata/scheduledevents?api-version=2019-08-01
+---
+> # - name: write memory size to /var/lib/hyperv/.kvp_pool_2 (change if memory != 128GB)
+> #   shell: bash -c 'printf "CurrentMemoryMB%b%b%b%b131072%b" "\0" "\0" "\0" "\0" "\0" > /var/lib/hyperv/.kvp_pool_2'
+> #   become: true
+> 
+> # - name: change .kvp_pool_2 permissions
+> #   shell: "chmod 777 /var/lib/hyperv/.kvp_pool_2"
+> #   become: true
+> 
+> # - name : set up Azure metadata service
+> #   shell: curl -H Metadata:true http://169.254.169.254/metadata/scheduledevents?api-version=2019-08-01
+64,68c73,77
+< - name: install docker for python
+<   pip:
+<     name: docker
+<     version: 4.0.2
+<   become: true
+---
+> # - name: install docker for python
+> #   pip:
+> #     name: docker
+> #     version: 4.0.2
+> #   become: true
+diff --color -r openwhisk-harv-vm-cgroup-azure-distributed-jsq/ansible/setup.yml openwhisk-harv-vm-cgroup-azure-distributed/ansible/setup.yml
+45,47c45,47
+<   - name: gen hosts for Azure
+<     local_action: template src="{{playbook_dir}}/environments/azure/hosts.j2.ini" dest="{{ playbook_dir }}/environments/azure/hosts"
+<     when: "'environments/azure' in hosts_dir"
+---
+>   # - name: gen hosts for Azure
+>   #   local_action: template src="{{playbook_dir}}/environments/azure/hosts.j2.ini" dest="{{ playbook_dir }}/environments/azure/hosts"
+>   #   when: "'environments/azure' in hosts_dir"
+Only in openwhisk-harv-vm-cgroup-azure-distributed/ansible: setup_add_invoker.sh
+Only in openwhisk-harv-vm-cgroup-azure-distributed/ansible: setup_invoker.yml
+diff --color -r openwhisk-harv-vm-cgroup-azure-distributed-jsq/ansible/tasks/installOpenwhiskCatalog.yml openwhisk-harv-vm-cgroup-azure-distributed/ansible/tasks/installOpenwhiskCatalog.yml
+64c64
+<   when: skip_catalog_install == false
+---
+>   when: skip_catalog_install == false
+\ No newline at end of file

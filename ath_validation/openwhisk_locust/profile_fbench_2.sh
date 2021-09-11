@@ -1,1 +1,0 @@
-python3 ./profile_function.py --min-users 1 --max-users 6 --user-step 1 --profile-users 2 --function lr_review --iat 1

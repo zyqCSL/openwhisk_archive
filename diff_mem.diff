@@ -1,0 +1,204 @@
+Only in openwhisk-mem-compare/ansible: all_synthetic
+diff --color -r openwhisk-harv-vm-cgroup-azure-distributed-jsq/ansible/ansible.cfg openwhisk-mem-compare/ansible/ansible.cfg
+11c11
+< scp_if_ssh = True
+\ No newline at end of file
+---
+> scp_if_ssh = True
+Only in openwhisk-harv-vm-cgroup-azure-distributed-jsq/ansible: clear_deployment.sh
+diff --color -r openwhisk-harv-vm-cgroup-azure-distributed-jsq/ansible/deploy_couchdb.sh openwhisk-mem-compare/ansible/deploy_couchdb.sh
+0a1
+> # ansible-playbook prereq_system.yml  # install pkgs on controllers & invokers
+diff --color -r openwhisk-harv-vm-cgroup-azure-distributed-jsq/ansible/deploy_couchdb_init.sh openwhisk-mem-compare/ansible/deploy_couchdb_init.sh
+1a2
+> # ansible-playbook prereq_system.yml  # install pkgs on controllers & invokers
+Only in openwhisk-mem-compare/ansible/environments: jenkins
+diff --color -r openwhisk-harv-vm-cgroup-azure-distributed-jsq/ansible/environments/local/group_vars/all openwhisk-mem-compare/ansible/environments/local/group_vars/all
+50c50
+< limit_action_concurrency_max: 5000
+---
+> limit_action_concurrency_max: 500
+diff --color -r openwhisk-harv-vm-cgroup-azure-distributed-jsq/ansible/files/runtimes.json openwhisk-mem-compare/ansible/files/runtimes.json
+216a217,261
+>         },
+>         {
+>             "prefix": "sailresearch",
+>             "name": "python3_openwhisk",
+>             "tag": "latest"
+>         },
+>         {
+>             "prefix": "sailresearch",
+>             "name": "chameleon_openwhisk-0",
+>             "tag": "latest"
+>         },
+>         {
+>             "prefix": "sailresearch",
+>             "name": "image_processing_openwhisk-0",
+>             "tag": "latest"
+>         },
+>         {
+>             "prefix": "sailresearch",
+>             "name": "matmult_openwhisk-0",
+>             "tag": "latest"
+>         },
+>         {
+>             "prefix": "sailresearch",
+>             "name": "linpack_openwhisk-0",
+>             "tag": "latest"
+>         },
+>         {
+>             "prefix": "sailresearch",
+>             "name": "pyaes_openwhisk-0",
+>             "tag": "latest"
+>         },
+>         {
+>             "prefix": "sailresearch",
+>             "name": "video_process_openwhisk-0",
+>             "tag": "latest"
+>         },
+>         {
+>             "prefix": "sailresearch",
+>             "name": "lr_review_openwhisk-0",
+>             "tag": "latest"
+>         },
+>         {
+>             "prefix": "sailresearch",
+>             "name": "mobilenet_openwhisk-0",
+>             "tag": "latest"
+219c264
+< }
+---
+> }
+\ No newline at end of file
+Only in openwhisk-mem-compare/ansible/files: runtimes_synthetic.json
+diff --color -r openwhisk-harv-vm-cgroup-azure-distributed-jsq/ansible/group_vars/all openwhisk-mem-compare/ansible/group_vars/all
+194c194
+<   userMemory: "{{ invoker_user_memory | default('2048m') }}"
+---
+>   userMemory: "{{ invoker_user_memory | default('131072m') }}"
+diff --color -r openwhisk-harv-vm-cgroup-azure-distributed-jsq/ansible/prereq.yml openwhisk-mem-compare/ansible/prereq.yml
+23d22
+<   # strategy: free
+diff --color -r openwhisk-harv-vm-cgroup-azure-distributed-jsq/ansible/roles/controller/tasks/deploy.yml openwhisk-mem-compare/ansible/roles/controller/tasks/deploy.yml
+31,33c31,32
+<   # yanqi, controller changed
+<   shell: "docker pull sailresearch/openwhisk_harvest_vm_cgroup_controller-jsq:latest"
+<   # when: docker_registry != ""
+---
+>   shell: "docker pull sailresearch/controller-mem:latest"
+>   when: docker_registry != ""
+201a201
+>       "CONFIG_whisk_db_subjectsDdoc": "{{ db_whisk_subjects_ddoc | default() }}"
+318,319c318
+<       # yanqi, controller image changed
+<       "sailresearch/openwhisk_harvest_vm_cgroup_controller-jsq:latest"
+---
+>       "sailresearch/controller-mem:latest"
+diff --color -r openwhisk-harv-vm-cgroup-azure-distributed-jsq/ansible/roles/invoker/tasks/deploy.yml openwhisk-mem-compare/ansible/roles/invoker/tasks/deploy.yml
+29,31c29,30
+<   # yanqi, invoker image changed
+<   shell: "docker pull sailresearch/openwhisk_harvest_vm_cgroup_invoker-jsq:latest"
+<   # when: docker_registry != ""
+---
+>   shell: "docker pull sailresearch/invoker-mem:latest"
+>   when: docker_registry != ""
+239a239
+>       "CONFIG_whisk_db_subjectsDdoc": "{{ db_whisk_subjects_ddoc | default() }}"
+299,300d298
+< # yanqi, add /var/lib/hyperv to volumes (monitor harvest vm resource)
+< # yanqi, add /sys/fs/cgroup/cpuacct/docker/ to volumes (monitor container cpu usage (in ns))
+304,305d301
+<       /var/lib/hyperv:/hypervkvp,\
+<       /sys/fs/cgroup/cpuacct/docker:/cpu_docker,\
+362,363c358
+<     # yanqi, invoker image changed
+<     image: "sailresearch/openwhisk_harvest_vm_cgroup_invoker-jsq:latest"
+---
+>     image: "sailresearch/invoker-mem:latest"
+diff --color -r openwhisk-harv-vm-cgroup-azure-distributed-jsq/ansible/roles/kafka/tasks/deploy.yml openwhisk-mem-compare/ansible/roles/kafka/tasks/deploy.yml
+102c102
+<     pull: true
+---
+>     pull: "{{ kafka.pull_kafka | default(true) }}"
+diff --color -r openwhisk-harv-vm-cgroup-azure-distributed-jsq/ansible/roles/prereq/tasks/deploy.yml openwhisk-mem-compare/ansible/roles/prereq/tasks/deploy.yml
+31,33c31,34
+< - name: set up /var/lib/hyperv/.kvp_pool_0 (cpu info)
+<   shell: "touch /var/lib/hyperv/.kvp_pool_0"
+<   become: true
+---
+> #----- setting up .kvp_pool_x is moved to azure vm startup scripts -----#
+> # - name: set up /var/lib/hyperv/.kvp_pool_0 (cpu info)
+> #   shell: "touch /var/lib/hyperv/.kvp_pool_0"
+> #   become: true
+35,37c36,38
+< - name: set up /var/lib/hyperv/.kvp_pool_2 (mem info)
+<   shell: "touch /var/lib/hyperv/.kvp_pool_2"
+<   become: true
+---
+> # - name: set up /var/lib/hyperv/.kvp_pool_2 (mem info)
+> #   shell: "touch /var/lib/hyperv/.kvp_pool_2"
+> #   become: true
+39,41c40,42
+< - name: write core number to /var/lib/hyperv/.kvp_pool_0 (change if core != 48)
+<   shell: bash -c 'if [ ! -s /var/lib/hyperv/.kvp_pool_0 ]; then printf "CurrentCoreCount%b%b%b%b48.000%b" "\0" "\0" "\0" "\0" "\0" > /var/lib/hyperv/.kvp_pool_0; fi'
+<   become: true
+---
+> # - name: write core number to /var/lib/hyperv/.kvp_pool_0 (change if core != 32)
+> #   shell: bash -c 'if [ ! -s /var/lib/hyperv/.kvp_pool_0 ]; then printf "CurrentCoreCount%b%b%b%b32.000%b" "\0" "\0" "\0" "\0" "\0" > /var/lib/hyperv/.kvp_pool_0; fi'
+> #   become: true
+43,45c44,46
+< - name: write memory size to /var/lib/hyperv/.kvp_pool_2 (change if memory != 196GB)
+<   shell: bash -c 'printf "CurrentMemoryMB%b%b%b%b200704%b" "\0" "\0" "\0" "\0" "\0" > /var/lib/hyperv/.kvp_pool_2'
+<   become: true
+---
+> # - name: change .kvp_pool_0 permissions
+> #   shell: "chmod 777 /var/lib/hyperv/.kvp_pool_0"
+> #   become: true
+47,48c48,57
+< - name : set up Azure metadata service
+<   shell: curl -H Metadata:true http://169.254.169.254/metadata/scheduledevents?api-version=2019-08-01
+---
+> # - name: write memory size to /var/lib/hyperv/.kvp_pool_2 (change if memory != 128GB)
+> #   shell: bash -c 'printf "CurrentMemoryMB%b%b%b%b131072%b" "\0" "\0" "\0" "\0" "\0" > /var/lib/hyperv/.kvp_pool_2'
+> #   become: true
+> 
+> # - name: change .kvp_pool_2 permissions
+> #   shell: "chmod 777 /var/lib/hyperv/.kvp_pool_2"
+> #   become: true
+> 
+> # - name : set up Azure metadata service
+> #   shell: curl -H Metadata:true http://169.254.169.254/metadata/scheduledevents?api-version=2019-08-01
+64,68c73,77
+< - name: install docker for python
+<   pip:
+<     name: docker
+<     version: 4.0.2
+<   become: true
+---
+> # - name: install docker for python
+> #   pip:
+> #     name: docker
+> #     version: 4.0.2
+> #   become: true
+diff --color -r openwhisk-harv-vm-cgroup-azure-distributed-jsq/ansible/roles/zookeeper/tasks/deploy.yml openwhisk-mem-compare/ansible/roles/zookeeper/tasks/deploy.yml
+20,26d19
+< - name: "pull the zookeeper:{{ zookeeper.version }} image"
+<   shell: "docker pull zookeeper:{{ zookeeper.version }}"
+<   register: result
+<   until: (result.rc == 0)
+<   retries: "{{ docker.pull.retries }}"
+<   delay: "{{ docker.pull.delay }}"
+< 
+49a43
+>     pull: "{{ zookeeper.pull_zookeeper | default(true) }}"
+diff --color -r openwhisk-harv-vm-cgroup-azure-distributed-jsq/ansible/setup.yml openwhisk-mem-compare/ansible/setup.yml
+45,48d44
+<   - name: gen hosts for Azure
+<     local_action: template src="{{playbook_dir}}/environments/azure/hosts.j2.ini" dest="{{ playbook_dir }}/environments/azure/hosts"
+<     when: "'environments/azure' in hosts_dir"
+< 
+diff --color -r openwhisk-harv-vm-cgroup-azure-distributed-jsq/ansible/setup_couchdb.sh openwhisk-mem-compare/ansible/setup_couchdb.sh
+5c5
+< export OW_DB_HOST=172.16.0.8
+---
+> export OW_DB_HOST=172.16.0.4
